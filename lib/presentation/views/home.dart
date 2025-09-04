@@ -18,10 +18,10 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   Map<String, List<Task>> _tasks = {};
 
-  // Current week's dates (starts from Sunday)
+  // Current week's dates (starts from Saturday)
   List<DateTime> _currentWeekDates = [];
 
-  // Arabic weekdays
+  // Arabic weekdays (Saturday to Friday)
   final List<String> _weekDays = [
     'الأحد', // Sunday
     'الإثنين', // Monday
@@ -58,21 +58,24 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
     _setTodayTab();
   }
 
-  // Initialize current week dates (Sunday to Saturday)
+  // Initialize current week dates (Saturday to Friday)
   void _initializeCurrentWeek() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    // Find the Sunday of current week
-    final sunday = today.subtract(Duration(days: today.weekday % 7));
+    // Find the Saturday of current week
+    // Saturday is weekday 6, so we need to calculate days back to Saturday
+    final daysToSaturday =
+        (today.weekday + 1) % 7; // Convert to Saturday-based calculation
+    final saturday = today.subtract(Duration(days: daysToSaturday));
 
-    // Generate all 7 days of the week
+    // Generate all 7 days of the week (Saturday to Friday)
     _currentWeekDates = List.generate(
       7,
-      (index) => sunday.add(Duration(days: index)),
+      (index) => saturday.add(Duration(days: index)),
     );
 
-    print('Current week dates: $_currentWeekDates');
+    print('Current week dates (Saturday to Friday): $_currentWeekDates');
   }
 
   // Initialize tasks for each day using date keys
@@ -234,67 +237,88 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
     print('Tasks saved successfully');
   }
 
-  // Task migration feature - migrate incomplete tasks from past dates to today
+  // Task migration feature - migrate all incomplete tasks to new Saturday (only on Friday)
   void _migrateIncompleteTasks() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final todayKey = _getDateKey(today);
 
-    print('Migration: Today is $todayKey');
+    print('Migration: Today is $todayKey (${today.toString()})');
+    print('Migration: Today is weekday ${today.weekday} (0=Monday, 6=Sunday)');
 
-    // Get all stored date keys that are before today
-    final List<String> pastDateKeys = [];
-    for (String dateKey in _tasks.keys) {
-      try {
-        final parts = dateKey.split('-');
-        final date = DateTime(
-          int.parse(parts[0]),
-          int.parse(parts[1]),
-          int.parse(parts[2]),
-        );
-        if (date.isBefore(today)) {
-          pastDateKeys.add(dateKey);
-        }
-      } catch (e) {
-        print('Migration: Invalid date key format: $dateKey');
-      }
+    // Only migrate on Friday (weekday 5 in Dart, but we need to check if it's Friday in our Saturday-Friday week)
+    // In our Saturday-Friday week: Saturday=0, Sunday=1, Monday=2, Tuesday=3, Wednesday=4, Thursday=5, Friday=6
+    final isFriday = today.weekday == 5; // Friday in Dart's weekday system
+
+    if (!isFriday) {
+      print('Migration: Not Friday, skipping migration');
+      return;
     }
 
-    print('Migration: Past dates to check: $pastDateKeys');
+    print('Migration: It\'s Friday! Starting weekly migration...');
 
-    // Check each past date for incomplete tasks
-    for (String dateKey in pastDateKeys) {
+    // Calculate next Saturday (start of next week)
+    final nextSaturday = today.add(
+      Duration(days: 1),
+    ); // Friday + 1 day = Saturday
+    final nextSaturdayKey = _getDateKey(nextSaturday);
+
+    print(
+      'Migration: Next Saturday is $nextSaturdayKey (${nextSaturday.toString()})',
+    );
+
+    // Get all incomplete tasks from the entire current week
+    final List<Task> allIncompleteTasks = [];
+
+    for (DateTime weekDate in _currentWeekDates) {
+      final dateKey = _getDateKey(weekDate);
       final dayTasks = _tasks[dateKey] ?? [];
-      print('Migration: Checking $dateKey with ${dayTasks.length} tasks');
 
-      // Find incomplete tasks
       final incompleteTasks = dayTasks
           .where((task) => !task.isCompleted)
           .toList();
+      allIncompleteTasks.addAll(incompleteTasks);
 
-      if (incompleteTasks.isNotEmpty) {
-        print(
-          'Migration: Found ${incompleteTasks.length} incomplete tasks in $dateKey',
+      print(
+        'Migration: Found ${incompleteTasks.length} incomplete tasks in $dateKey',
+      );
+    }
+
+    if (allIncompleteTasks.isNotEmpty) {
+      print(
+        'Migration: Total incomplete tasks to migrate: ${allIncompleteTasks.length}',
+      );
+
+      // Ensure next Saturday's list exists
+      _tasks[nextSaturdayKey] = _tasks[nextSaturdayKey] ?? [];
+
+      // Add all incomplete tasks to next Saturday with migration flag
+      for (final task in allIncompleteTasks) {
+        final migratedTask = task.copyWith(
+          dayOfWeek: nextSaturdayKey,
+          isMigrated: true,
         );
-
-        // Ensure today's list exists
-        _tasks[todayKey] = _tasks[todayKey] ?? [];
-
-        // Add incomplete tasks to today with updated day and migration flag
-        for (final task in incompleteTasks) {
-          final migratedTask = task.copyWith(
-            dayOfWeek: todayKey,
-            isMigrated: true,
-          );
-          _tasks[todayKey]!.add(migratedTask);
-        }
-
-        // Remove incomplete tasks from original date
-        _tasks[dateKey]!.removeWhere((task) => !task.isCompleted);
-        print(
-          'Migration: Moved ${incompleteTasks.length} tasks from $dateKey to $todayKey',
-        );
+        _tasks[nextSaturdayKey]!.add(migratedTask);
       }
+
+      // Remove all incomplete tasks from current week
+      for (DateTime weekDate in _currentWeekDates) {
+        final dateKey = _getDateKey(weekDate);
+        if (_tasks[dateKey] != null) {
+          final beforeCount = _tasks[dateKey]!.length;
+          _tasks[dateKey]!.removeWhere((task) => !task.isCompleted);
+          final afterCount = _tasks[dateKey]!.length;
+          print(
+            'Migration: Removed ${beforeCount - afterCount} incomplete tasks from $dateKey',
+          );
+        }
+      }
+
+      print(
+        'Migration: Moved ${allIncompleteTasks.length} tasks to next Saturday ($nextSaturdayKey)',
+      );
+    } else {
+      print('Migration: No incomplete tasks found in current week');
     }
 
     // Save the migrated tasks
@@ -502,65 +526,68 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
           borderRadius: BorderRadius.circular(RubyTheme.radiusLarge(context)),
           boxShadow: RubyTheme.mediumShadow,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Container(
-              width: 40,
-              height: 4,
-              margin: EdgeInsets.only(top: RubyTheme.spacingM(context)),
-              decoration: BoxDecoration(
-                color: RubyTheme.mediumGray.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            SizedBox(height: RubyTheme.spacingL(context)),
-
-            // Header
-            Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: RubyTheme.spacingL(context),
-              ),
-              child: Text(
-                'خيارات المهمة',
-                style: RubyTheme.heading2(
-                  context,
-                ).copyWith(color: RubyTheme.charcoal),
-              ),
-            ),
-            SizedBox(height: RubyTheme.spacingL(context)),
-
-            // Delete option
-            ListTile(
-              leading: Container(
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
                 width: 40,
-                height: 40,
+                height: 4,
+                margin: EdgeInsets.only(top: RubyTheme.spacingM(context)),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(
-                    RubyTheme.radiusMedium(context),
+                  color: RubyTheme.mediumGray.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              SizedBox(height: RubyTheme.spacingL(context)),
+
+              // Header
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: RubyTheme.spacingL(context),
+                ),
+                child: Text(
+                  'خيارات المهمة',
+                  style: RubyTheme.heading2(
+                    context,
+                  ).copyWith(color: RubyTheme.charcoal),
+                ),
+              ),
+              SizedBox(height: RubyTheme.spacingL(context)),
+
+              // Delete option
+              ListTile(
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(
+                      RubyTheme.radiusMedium(context),
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.red,
+                    size: 20,
                   ),
                 ),
-                child: const Icon(
-                  Icons.delete_outline,
-                  color: Colors.red,
-                  size: 20,
+                title: Text(
+                  'حذف المهمة',
+                  style: RubyTheme.bodyLarge(
+                    context,
+                  ).copyWith(color: Colors.red, fontWeight: FontWeight.w500),
                 ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _deleteTask(dateKey, taskId);
+                },
               ),
-              title: Text(
-                'حذف المهمة',
-                style: RubyTheme.bodyLarge(
-                  context,
-                ).copyWith(color: Colors.red, fontWeight: FontWeight.w500),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _deleteTask(dateKey, taskId);
-              },
-            ),
-            SizedBox(height: RubyTheme.spacingL(context)),
-          ],
+              SizedBox(height: RubyTheme.spacingL(context)),
+            ],
+          ),
         ),
       ),
     );
