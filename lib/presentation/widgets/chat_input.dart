@@ -42,7 +42,8 @@ class _ChatInputState extends State<ChatInput> {
     if (taskText.isNotEmpty) {
       widget.onTaskAdded(taskText);
       _controller.clear();
-      _focusNode.unfocus();
+      // Keep keyboard open for continuous task entry
+      // _focusNode.unfocus(); // Removed to prevent keyboard dismissal
     }
   }
 

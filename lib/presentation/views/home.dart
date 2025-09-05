@@ -15,6 +15,7 @@ class Todo extends StatefulWidget {
 class _TodoState extends State<Todo> with TickerProviderStateMixin {
   late TabController _tabController;
   late ScrollController _tabScrollController;
+  late PageController _pageController;
   int _selectedIndex = 0;
   Map<String, List<Task>> _tasks = {};
 
@@ -37,16 +38,53 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
     super.initState();
     _tabController = TabController(length: _weekDays.length, vsync: this);
     _tabScrollController = ScrollController();
+
+    // Initialize current week dates first to get today's index
+    _initializeCurrentWeek();
+
+    // Find today's index for PageController initialization
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final todayIndex = _currentWeekDates.indexWhere(
+      (date) =>
+          date.year == today.year &&
+          date.month == today.month &&
+          date.day == today.day,
+    );
+
+    // Initialize PageController with today's page
+    _pageController = PageController(
+      initialPage: todayIndex >= 0 ? todayIndex : 0,
+    );
+
     _tabController.addListener(() {
-      setState(() {
-        _selectedIndex = _tabController.index;
-      });
-      // Auto-scroll to keep selected tab in view
-      _scrollToSelectedTab(_tabController.index);
+      if (_selectedIndex != _tabController.index) {
+        setState(() {
+          _selectedIndex = _tabController.index;
+        });
+        // Sync PageController with TabController only if it's attached
+        if (_pageController.hasClients) {
+          _pageController.animateToPage(
+            _tabController.index,
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+          );
+        }
+        // Auto-scroll to keep selected tab in view with reduced delay
+        _scrollToSelectedTab(_tabController.index);
+      }
     });
 
-    // Initialize current week dates
-    _initializeCurrentWeek();
+    _pageController.addListener(() {
+      if (_pageController.page != null) {
+        final pageIndex = _pageController.page!.round();
+        if (pageIndex != _selectedIndex &&
+            pageIndex >= 0 &&
+            pageIndex < _weekDays.length) {
+          _tabController.animateTo(pageIndex);
+        }
+      }
+    });
 
     // Initialize tasks for each day
     _initializeTasks();
@@ -92,9 +130,10 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
   }
 
   // Get display text for a date (e.g., "السبت 30/2")
-  String _getDateDisplayText(DateTime date) {
+  String _getDateDisplayText(DateTime date, bool showDate) {
     final dayName = _weekDays[date.weekday % 7];
-    return "$dayName ${date.day}/${date.month}";
+    if (showDate) return "$dayName ${date.day}/${date.month}";
+    return dayName;
   }
 
   // Check if a date is today
@@ -118,12 +157,18 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
     );
 
     if (todayIndex != -1) {
-      _tabController.animateTo(todayIndex);
+      // Set the initial index immediately without animation
+      _tabController.index = todayIndex;
       _selectedIndex = todayIndex;
 
-      // Scroll to today's tab after a short delay to ensure it's rendered
+      // Scroll to today's tab after the widget is built
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToTodayTab(todayIndex);
+        // Use a microtask to ensure the scroll happens after the widget is fully built
+        Future.microtask(() {
+          if (_tabScrollController.hasClients) {
+            _scrollToTodayTab(todayIndex);
+          }
+        });
       });
     }
   }
@@ -134,8 +179,9 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
 
   void _scrollToSelectedTab(int selectedIndex) {
     if (_tabScrollController.hasClients) {
-      // Calculate the position to center the selected tab
-      final double tabWidth = 120.0; // Approximate tab width
+      // Calculate the position to center the selected tab more accurately
+      final double tabWidth =
+          140.0; // More accurate tab width including margins
       final double screenWidth = MediaQuery.of(context).size.width;
       final double targetPosition =
           (selectedIndex * tabWidth) - (screenWidth / 2) + (tabWidth / 2);
@@ -145,8 +191,8 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
           0.0,
           _tabScrollController.position.maxScrollExtent,
         ),
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
       );
     }
   }
@@ -228,7 +274,7 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
     });
 
     // Migrate incomplete tasks after loading
-    _migrateIncompleteTasks();
+    await _migrateIncompleteTasks();
   }
 
   Future<void> _saveTasks() async {
@@ -237,8 +283,8 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
     print('Tasks saved successfully');
   }
 
-  // Task migration feature - migrate all incomplete tasks to new Saturday (only on Friday)
-  void _migrateIncompleteTasks() {
+  // Task migration feature - migrate all incomplete tasks from previous week to current Saturday
+  Future<void> _migrateIncompleteTasks() async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final todayKey = _getDateKey(today);
@@ -246,31 +292,36 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
     print('Migration: Today is $todayKey (${today.toString()})');
     print('Migration: Today is weekday ${today.weekday} (0=Monday, 6=Sunday)');
 
-    // Only migrate on Friday (weekday 5 in Dart, but we need to check if it's Friday in our Saturday-Friday week)
-    // In our Saturday-Friday week: Saturday=0, Sunday=1, Monday=2, Tuesday=3, Wednesday=4, Thursday=5, Friday=6
-    final isFriday = today.weekday == 5; // Friday in Dart's weekday system
+    // Check if migration has already been done for this week
+    final lastMigration = await StorageService.getLastMigrationWeekAsync();
+    final currentWeekKey = _getWeekKey(today);
 
-    if (!isFriday) {
-      print('Migration: Not Friday, skipping migration');
+    if (lastMigration == currentWeekKey) {
+      print(
+        'Migration: Already migrated for this week ($currentWeekKey), skipping',
+      );
       return;
     }
 
-    print('Migration: It\'s Friday! Starting weekly migration...');
+    // Only migrate on Saturday (weekday 6 in Dart) or when app opens and it's a new week
+    final isSaturday = today.weekday == 6; // Saturday in Dart's weekday system
+    final isNewWeek = lastMigration != currentWeekKey;
 
-    // Calculate next Saturday (start of next week)
-    final nextSaturday = today.add(
-      Duration(days: 1),
-    ); // Friday + 1 day = Saturday
-    final nextSaturdayKey = _getDateKey(nextSaturday);
+    if (!isSaturday && !isNewWeek) {
+      print('Migration: Not Saturday and not a new week, skipping migration');
+      return;
+    }
 
-    print(
-      'Migration: Next Saturday is $nextSaturdayKey (${nextSaturday.toString()})',
-    );
+    print('Migration: Starting weekly migration for week $currentWeekKey...');
 
-    // Get all incomplete tasks from the entire current week
+    // Calculate previous week dates (Saturday to Friday)
+    final previousWeekDates = _getPreviousWeekDates(today);
+    print('Migration: Previous week dates: $previousWeekDates');
+
+    // Get all incomplete tasks from the previous week
     final List<Task> allIncompleteTasks = [];
 
-    for (DateTime weekDate in _currentWeekDates) {
+    for (DateTime weekDate in previousWeekDates) {
       final dateKey = _getDateKey(weekDate);
       final dayTasks = _tasks[dateKey] ?? [];
 
@@ -289,20 +340,24 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
         'Migration: Total incomplete tasks to migrate: ${allIncompleteTasks.length}',
       );
 
-      // Ensure next Saturday's list exists
-      _tasks[nextSaturdayKey] = _tasks[nextSaturdayKey] ?? [];
+      // Get current Saturday (start of current week)
+      final currentSaturday = _currentWeekDates.first;
+      final currentSaturdayKey = _getDateKey(currentSaturday);
 
-      // Add all incomplete tasks to next Saturday with migration flag
+      // Ensure current Saturday's list exists
+      _tasks[currentSaturdayKey] = _tasks[currentSaturdayKey] ?? [];
+
+      // Add all incomplete tasks to current Saturday with migration flag
       for (final task in allIncompleteTasks) {
         final migratedTask = task.copyWith(
-          dayOfWeek: nextSaturdayKey,
+          dayOfWeek: currentSaturdayKey,
           isMigrated: true,
         );
-        _tasks[nextSaturdayKey]!.add(migratedTask);
+        _tasks[currentSaturdayKey]!.add(migratedTask);
       }
 
-      // Remove all incomplete tasks from current week
-      for (DateTime weekDate in _currentWeekDates) {
+      // Remove all incomplete tasks from previous week
+      for (DateTime weekDate in previousWeekDates) {
         final dateKey = _getDateKey(weekDate);
         if (_tasks[dateKey] != null) {
           final beforeCount = _tasks[dateKey]!.length;
@@ -315,20 +370,52 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
       }
 
       print(
-        'Migration: Moved ${allIncompleteTasks.length} tasks to next Saturday ($nextSaturdayKey)',
+        'Migration: Moved ${allIncompleteTasks.length} tasks to current Saturday ($currentSaturdayKey)',
       );
     } else {
-      print('Migration: No incomplete tasks found in current week');
+      print('Migration: No incomplete tasks found in previous week');
     }
 
+    // Mark this week as migrated
+    await StorageService.setLastMigrationWeek(currentWeekKey);
+
     // Save the migrated tasks
-    _saveTasks();
+    await _saveTasks();
+  }
+
+  // Get week key for tracking migrations (format: "2025-W05")
+  String _getWeekKey(DateTime date) {
+    // Calculate week number (Saturday-based week)
+    final year = date.year;
+    final jan1 = DateTime(year, 1, 1);
+    final daysSinceJan1 = date.difference(jan1).inDays;
+    final weekNumber = ((daysSinceJan1 + jan1.weekday) / 7).ceil();
+    return "$year-W${weekNumber.toString().padLeft(2, '0')}";
+  }
+
+  // Get previous week dates (Saturday to Friday)
+  List<DateTime> _getPreviousWeekDates(DateTime currentDate) {
+    // Find the Saturday of current week
+    final daysToSaturday = (currentDate.weekday + 1) % 7;
+    final currentSaturday = currentDate.subtract(
+      Duration(days: daysToSaturday),
+    );
+
+    // Calculate previous Saturday (7 days before current Saturday)
+    final previousSaturday = currentSaturday.subtract(Duration(days: 7));
+
+    // Generate all 7 days of the previous week (Saturday to Friday)
+    return List.generate(
+      7,
+      (index) => previousSaturday.add(Duration(days: index)),
+    );
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _tabScrollController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -355,13 +442,18 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                       final isSelected = _selectedIndex == index;
                       final isToday = _isTodayIndex(index);
                       final date = _currentWeekDates[index];
-                      final displayText = _getDateDisplayText(date);
+                      final displayText = _getDateDisplayText(date, false);
                       return GestureDetector(
                         onTap: () {
-                          _tabController.animateTo(index);
+                          _tabController.animateTo(
+                            index,
+                            duration: const Duration(milliseconds: 150),
+                            curve: Curves.easeOut,
+                          );
                         },
                         child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
+                          duration: const Duration(milliseconds: 150),
+                          curve: Curves.easeOut,
                           margin: EdgeInsets.symmetric(
                             horizontal: RubyTheme.spacingXS(context),
                           ),
@@ -393,35 +485,60 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                                     ),
                                   ],
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (isToday)
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  margin: EdgeInsets.only(
-                                    left: RubyTheme.spacingXS(context),
+                          child: AnimatedScale(
+                            scale: isSelected ? 1.05 : 1.0,
+                            duration: const Duration(milliseconds: 150),
+                            curve: Curves.easeOut,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (isToday)
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 150),
+                                    curve: Curves.easeOut,
+                                    width: 8,
+                                    height: 8,
+                                    margin: EdgeInsets.only(
+                                      left: RubyTheme.spacingXS(context),
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? RubyTheme.pureWhite
+                                          : RubyTheme.rubyRed,
+                                      shape: BoxShape.circle,
+                                      boxShadow: isSelected
+                                          ? [
+                                              BoxShadow(
+                                                color: RubyTheme.pureWhite
+                                                    .withOpacity(0.5),
+                                                blurRadius: 4,
+                                                spreadRadius: 1,
+                                              ),
+                                            ]
+                                          : null,
+                                    ),
                                   ),
-                                  decoration: BoxDecoration(
+                                AnimatedDefaultTextStyle(
+                                  duration: const Duration(milliseconds: 150),
+                                  curve: Curves.easeOut,
+                                  style: RubyTheme.bodyLarge(context).copyWith(
                                     color: isSelected
                                         ? RubyTheme.pureWhite
-                                        : RubyTheme.rubyRed,
-                                    shape: BoxShape.circle,
+                                        : RubyTheme.charcoal,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                    fontSize: isSelected
+                                        ? RubyTheme.bodyLarge(
+                                                context,
+                                              ).fontSize! *
+                                              1.05
+                                        : RubyTheme.bodyLarge(context).fontSize,
                                   ),
+                                  child: Text(displayText),
                                 ),
-                              Text(
-                                displayText,
-                                style: RubyTheme.bodyLarge(context).copyWith(
-                                  color: isSelected
-                                      ? RubyTheme.pureWhite
-                                      : RubyTheme.charcoal,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w600
-                                      : FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       );
@@ -432,80 +549,105 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
 
               // Chat-style Task List
               Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: List.generate(_currentWeekDates.length, (index) {
+                child: PageView.builder(
+                  controller: _pageController,
+                  physics: const ClampingScrollPhysics(),
+                  itemCount: _currentWeekDates.length,
+                  itemBuilder: (context, index) {
                     final date = _currentWeekDates[index];
                     final dateKey = _getDateKey(date);
                     final dayTasks = _tasks[dateKey] ?? [];
                     final isToday = _isTodayIndex(index);
-                    final displayText = _getDateDisplayText(date);
+                    final displayText = _getDateDisplayText(date, true);
 
-                    return Column(
-                      children: [
-                        // Task list
-                        Expanded(
-                          child: dayTasks.isEmpty
-                              ? // Empty state
-                                Container(
-                                  padding: EdgeInsets.all(
-                                    RubyTheme.spacingXXL(context),
-                                  ),
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          displayText,
-                                          style: RubyTheme.heading2(
-                                            context,
-                                          ).copyWith(color: RubyTheme.charcoal),
-                                        ),
-                                        SizedBox(
-                                          height: RubyTheme.spacingS(context),
-                                        ),
-                                        Text(
-                                          'مفيش تاسكات النهارده',
-                                          style: RubyTheme.bodyLarge(context)
-                                              .copyWith(
-                                                color: RubyTheme.mediumGray,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  padding: EdgeInsets.only(
-                                    top: RubyTheme.spacingM(context),
-                                    bottom: RubyTheme.spacingS(context),
-                                  ),
-                                  itemCount: dayTasks.length,
-                                  itemBuilder: (context, taskIndex) {
-                                    final task = dayTasks[taskIndex];
-                                    return TaskBubble(
-                                      task: task,
-                                      isToday: isToday,
-                                      onTap: () => _toggleTaskCompletion(
-                                        dateKey,
-                                        task.id,
-                                      ),
-                                      onLongPress: () =>
-                                          _showTaskOptions(dateKey, task.id),
-                                    );
-                                  },
+                    return AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      transitionBuilder: (child, animation) {
+                        return SlideTransition(
+                          position:
+                              Tween<Offset>(
+                                begin: const Offset(0.1, 0.0),
+                                end: Offset.zero,
+                              ).animate(
+                                CurvedAnimation(
+                                  parent: animation,
+                                  curve: Curves.easeOutCubic,
                                 ),
-                        ),
+                              ),
+                          child: FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: Column(
+                        key: ValueKey(index), // Important for AnimatedSwitcher
+                        children: [
+                          // Task list
+                          Expanded(
+                            child: dayTasks.isEmpty
+                                ? // Empty state
+                                  Container(
+                                    padding: EdgeInsets.all(
+                                      RubyTheme.spacingXXL(context),
+                                    ),
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            displayText,
+                                            style: RubyTheme.heading2(context)
+                                                .copyWith(
+                                                  color: RubyTheme.charcoal,
+                                                ),
+                                          ),
+                                          SizedBox(
+                                            height: RubyTheme.spacingS(context),
+                                          ),
+                                          Text(
+                                            'مفيش تاسكات النهارده',
+                                            style: RubyTheme.bodyLarge(context)
+                                                .copyWith(
+                                                  color: RubyTheme.mediumGray,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    padding: EdgeInsets.only(
+                                      top: RubyTheme.spacingM(context),
+                                      bottom: RubyTheme.spacingS(context),
+                                    ),
+                                    itemCount: dayTasks.length,
+                                    itemBuilder: (context, taskIndex) {
+                                      final task = dayTasks[taskIndex];
+                                      return TaskBubble(
+                                        task: task,
+                                        isToday: isToday,
+                                        onTap: () => _toggleTaskCompletion(
+                                          dateKey,
+                                          task.id,
+                                        ),
+                                        onLongPress: () =>
+                                            _showTaskOptions(dateKey, task.id),
+                                      );
+                                    },
+                                  ),
+                          ),
 
-                        // Chat input
-                        ChatInput(
-                          dayOfWeek: displayText,
-                          onTaskAdded: _addTaskToCurrentDay,
-                        ),
-                      ],
+                          // Chat input
+                          ChatInput(
+                            dayOfWeek: displayText,
+                            onTaskAdded: _addTaskToCurrentDay,
+                          ),
+                        ],
+                      ),
                     );
-                  }),
+                  },
                 ),
               ),
             ],

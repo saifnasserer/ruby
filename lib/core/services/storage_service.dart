@@ -4,6 +4,7 @@ import '../models/task.dart';
 
 class StorageService {
   static const String _tasksKey = 'ruby_tasks';
+  static const String _lastMigrationWeekKey = 'last_migration_week';
 
   // Save all tasks to local storage
   static Future<void> saveTasks(Map<String, List<Task>> tasks) async {
@@ -85,6 +86,41 @@ class StorageService {
       };
     } catch (e) {
       return {'error': e.toString()};
+    }
+  }
+
+  // Get last migration week
+  static String? getLastMigrationWeek() {
+    try {
+      // Note: This is synchronous because SharedPreferences.getInstance() is async
+      // but we need this to be synchronous for the migration check
+      // We'll use a different approach - store in memory and persist separately
+      return null; // Will be handled by the migration logic
+    } catch (e) {
+      print('Error getting last migration week: $e');
+      return null;
+    }
+  }
+
+  // Set last migration week
+  static Future<void> setLastMigrationWeek(String weekKey) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_lastMigrationWeekKey, weekKey);
+      print('StorageService: Set last migration week to $weekKey');
+    } catch (e) {
+      print('Error setting last migration week: $e');
+    }
+  }
+
+  // Get last migration week (async version)
+  static Future<String?> getLastMigrationWeekAsync() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_lastMigrationWeekKey);
+    } catch (e) {
+      print('Error getting last migration week: $e');
+      return null;
     }
   }
 }

@@ -27,8 +27,81 @@ class TaskBubble extends StatelessWidget {
           vertical: RubyTheme.spacingXS(context),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.end, // RTL alignment
+          mainAxisAlignment: MainAxisAlignment.start, // RTL alignment
           children: [
+            // Task bubble
+            Flexible(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.75,
+                ),
+                padding: EdgeInsets.symmetric(
+                  horizontal: RubyTheme.spacingM(context),
+                  vertical: RubyTheme.spacingM(context) / 2,
+                ),
+                decoration: BoxDecoration(
+                  gradient: task.isCompleted ? null : RubyTheme.rubyGradient,
+                  color: task.isCompleted
+                      ? RubyTheme.emerald.withOpacity(0.15)
+                      : null,
+                  borderRadius: BorderRadius.circular(
+                    RubyTheme.radiusLarge(context),
+                  ), // Completely rounded
+                  boxShadow: RubyTheme.softShadow,
+                  border: task.isCompleted
+                      ? Border.all(
+                          color: RubyTheme.emerald.withOpacity(0.3),
+                          width: 1,
+                        )
+                      : null,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: task.isCompleted
+                            ? RubyTheme.emerald
+                            : RubyTheme.pureWhite.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        task.isCompleted
+                            ? Icons.check_rounded
+                            : Icons.circle_outlined,
+                        color: task.isCompleted
+                            ? RubyTheme.pureWhite
+                            : RubyTheme.pureWhite.withOpacity(0.8),
+                        size: 16,
+                      ),
+                    ),
+
+                    // Completion indicator
+                    SizedBox(width: RubyTheme.spacingS(context)),
+
+                    // Task text
+                    Flexible(
+                      child: Text(
+                        task.text,
+                        style: RubyTheme.bodyLarge(context).copyWith(
+                          color: task.isCompleted
+                              ? RubyTheme.darkGray.withOpacity(0.7)
+                              : RubyTheme.pureWhite,
+                          decoration: task.isCompleted
+                              ? TextDecoration.lineThrough
+                              : null,
+                          fontWeight: task.isCompleted
+                              ? FontWeight.w400
+                              : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(width: RubyTheme.spacingS(context)),
             // Time stamp and migration indicator
             if (isToday)
               Container(
@@ -66,78 +139,6 @@ class TaskBubble extends StatelessWidget {
                   ],
                 ),
               ),
-
-            // Task bubble
-            Flexible(
-              child: Container(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.75,
-                ),
-                padding: EdgeInsets.symmetric(
-                  horizontal: RubyTheme.spacingM(context),
-                  vertical: RubyTheme.spacingM(context) / 2,
-                ),
-                decoration: BoxDecoration(
-                  gradient: task.isCompleted ? null : RubyTheme.rubyGradient,
-                  color: task.isCompleted
-                      ? RubyTheme.emerald.withOpacity(0.15)
-                      : null,
-                  borderRadius: BorderRadius.circular(
-                    RubyTheme.radiusLarge(context),
-                  ), // Completely rounded
-                  boxShadow: RubyTheme.softShadow,
-                  border: task.isCompleted
-                      ? Border.all(
-                          color: RubyTheme.emerald.withOpacity(0.3),
-                          width: 1,
-                        )
-                      : null,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Task text
-                    Flexible(
-                      child: Text(
-                        task.text,
-                        style: RubyTheme.bodyLarge(context).copyWith(
-                          color: task.isCompleted
-                              ? RubyTheme.darkGray.withOpacity(0.7)
-                              : RubyTheme.pureWhite,
-                          decoration: task.isCompleted
-                              ? TextDecoration.lineThrough
-                              : null,
-                          fontWeight: task.isCompleted
-                              ? FontWeight.w400
-                              : FontWeight.w500,
-                        ),
-                      ),
-                    ),
-
-                    // Completion indicator
-                    SizedBox(width: RubyTheme.spacingS(context)),
-                    Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: task.isCompleted
-                            ? RubyTheme.emerald
-                            : RubyTheme.pureWhite.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        task.isCompleted
-                            ? Icons.check_rounded
-                            : Icons.circle_outlined,
-                        color: task.isCompleted
-                            ? RubyTheme.pureWhite
-                            : RubyTheme.pureWhite.withOpacity(0.8),
-                        size: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
           ],
         ),
       ),
