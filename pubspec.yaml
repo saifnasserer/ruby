@@ -1,5 +1,5 @@
 name: ruby
-description: "A new Flutter project."
+description: "Ruby - A beautiful and intuitive Flutter application designed to enhance your productivity and user experience."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -106,7 +106,7 @@ flutter:
 
 # Icons launcher configuration
 icons_launcher:
-  image_path: "assets/ruby.png"
+  image_path: "assets/Ruby_IC.png"
   platforms:
     android:
       enable: true

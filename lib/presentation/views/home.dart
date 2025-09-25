@@ -66,8 +66,8 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
         if (_pageController.hasClients) {
           _pageController.animateToPage(
             _tabController.index,
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOut,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOutCubic,
           );
         }
         // Auto-scroll to keep selected tab in view with reduced delay
@@ -81,7 +81,10 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
         if (pageIndex != _selectedIndex &&
             pageIndex >= 0 &&
             pageIndex < _weekDays.length) {
-          _tabController.animateTo(pageIndex);
+          // Only update tab controller if it's not already at the correct index
+          if (_tabController.index != pageIndex) {
+            _tabController.animateTo(pageIndex);
+          }
         }
       }
     });
@@ -191,8 +194,8 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
           0.0,
           _tabScrollController.position.maxScrollExtent,
         ),
-        duration: const Duration(milliseconds: 150),
-        curve: Curves.easeOut,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOutCubic,
       );
     }
   }
@@ -411,6 +414,121 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
     );
   }
 
+  // Check if there are unfinished tasks in past days of current week
+  bool _hasUnfinishedTasksInPastDays() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    for (DateTime date in _currentWeekDates) {
+      // Skip today and future days
+      if (date.isAfter(today) || _isToday(date)) {
+        continue;
+      }
+
+      final dateKey = _getDateKey(date);
+      final dayTasks = _tasks[dateKey] ?? [];
+
+      // Check if there are any unfinished tasks
+      final hasUnfinishedTasks = dayTasks.any((task) => !task.isCompleted);
+      if (hasUnfinishedTasks) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // Get count of unfinished tasks in past days
+  int _getUnfinishedTasksCountInPastDays() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    int count = 0;
+
+    for (DateTime date in _currentWeekDates) {
+      // Skip today and future days
+      if (date.isAfter(today) || _isToday(date)) {
+        continue;
+      }
+
+      final dateKey = _getDateKey(date);
+      final dayTasks = _tasks[dateKey] ?? [];
+
+      // Count unfinished tasks
+      count += dayTasks.where((task) => !task.isCompleted).length;
+    }
+
+    return count;
+  }
+
+  // Migrate unfinished tasks from past days to current day
+  Future<void> _migrateUnfinishedTasksToToday() async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final todayKey = _getDateKey(today);
+
+    // Ensure today's task list exists
+    _tasks[todayKey] = _tasks[todayKey] ?? [];
+
+    int migratedCount = 0;
+
+    for (DateTime date in _currentWeekDates) {
+      // Skip today and future days
+      if (date.isAfter(today) || _isToday(date)) {
+        continue;
+      }
+
+      final dateKey = _getDateKey(date);
+      final dayTasks = _tasks[dateKey] ?? [];
+
+      // Get unfinished tasks
+      final unfinishedTasks = dayTasks
+          .where((task) => !task.isCompleted)
+          .toList();
+
+      if (unfinishedTasks.isNotEmpty) {
+        // Move unfinished tasks to today
+        for (final task in unfinishedTasks) {
+          final migratedTask = task.copyWith(
+            dayOfWeek: todayKey,
+            isMigrated: true,
+          );
+          _tasks[todayKey]!.add(migratedTask);
+          migratedCount++;
+        }
+
+        // Remove unfinished tasks from the past day
+        _tasks[dateKey]!.removeWhere((task) => !task.isCompleted);
+      }
+    }
+
+    if (migratedCount > 0) {
+      // Save the migrated tasks
+      await _saveTasks();
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'تم نقل $migratedCount مهمة غير مكتملة إلى اليوم',
+              style: RubyTheme.bodyMedium(
+                context,
+              ).copyWith(color: RubyTheme.pureWhite),
+            ),
+            backgroundColor: RubyTheme.emerald,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(
+                RubyTheme.radiusMedium(context),
+              ),
+            ),
+            margin: EdgeInsets.all(RubyTheme.spacingM(context)),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _tabController.dispose();
@@ -445,15 +563,30 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                       final displayText = _getDateDisplayText(date, false);
                       return GestureDetector(
                         onTap: () {
+                          // Update selected index immediately
+                          setState(() {
+                            _selectedIndex = index;
+                          });
+                          // Animate tab controller
                           _tabController.animateTo(
                             index,
-                            duration: const Duration(milliseconds: 150),
-                            curve: Curves.easeOut,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOutCubic,
                           );
+                          // Animate page controller
+                          if (_pageController.hasClients) {
+                            _pageController.animateToPage(
+                              index,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOutCubic,
+                            );
+                          }
+                          // Scroll to selected tab
+                          _scrollToSelectedTab(index);
                         },
                         child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          curve: Curves.easeOut,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOutCubic,
                           margin: EdgeInsets.symmetric(
                             horizontal: RubyTheme.spacingXS(context),
                           ),
@@ -487,15 +620,15 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                           ),
                           child: AnimatedScale(
                             scale: isSelected ? 1.05 : 1.0,
-                            duration: const Duration(milliseconds: 150),
-                            curve: Curves.easeOut,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOutCubic,
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 if (isToday)
                                   AnimatedContainer(
-                                    duration: const Duration(milliseconds: 150),
-                                    curve: Curves.easeOut,
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeInOutCubic,
                                     width: 8,
                                     height: 8,
                                     margin: EdgeInsets.only(
@@ -519,8 +652,8 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                                     ),
                                   ),
                                 AnimatedDefaultTextStyle(
-                                  duration: const Duration(milliseconds: 150),
-                                  curve: Curves.easeOut,
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeInOutCubic,
                                   style: RubyTheme.bodyLarge(context).copyWith(
                                     color: isSelected
                                         ? RubyTheme.pureWhite
@@ -551,7 +684,7 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
               Expanded(
                 child: PageView.builder(
                   controller: _pageController,
-                  physics: const ClampingScrollPhysics(),
+                  physics: const BouncingScrollPhysics(),
                   itemCount: _currentWeekDates.length,
                   itemBuilder: (context, index) {
                     final date = _currentWeekDates[index];
@@ -561,21 +694,26 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                     final displayText = _getDateDisplayText(date, true);
 
                     return AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
+                      duration: const Duration(milliseconds: 400),
+                      switchInCurve: Curves.easeInOutCubic,
+                      switchOutCurve: Curves.easeInOutCubic,
                       transitionBuilder: (child, animation) {
                         return SlideTransition(
                           position:
                               Tween<Offset>(
-                                begin: const Offset(0.1, 0.0),
+                                begin: const Offset(0.15, 0.0),
                                 end: Offset.zero,
                               ).animate(
                                 CurvedAnimation(
                                   parent: animation,
-                                  curve: Curves.easeOutCubic,
+                                  curve: Curves.easeInOutCubic,
                                 ),
                               ),
                           child: FadeTransition(
-                            opacity: animation,
+                            opacity: CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeInOutCubic,
+                            ),
                             child: child,
                           ),
                         );
@@ -583,6 +721,82 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                       child: Column(
                         key: ValueKey(index), // Important for AnimatedSwitcher
                         children: [
+                          // Migration button (only show on today if there are unfinished tasks in past days)
+                          if (isToday && _hasUnfinishedTasksInPastDays())
+                            Container(
+                              margin: EdgeInsets.symmetric(
+                                horizontal: RubyTheme.spacingM(context),
+                                vertical: RubyTheme.spacingS(context),
+                              ),
+                              child: GestureDetector(
+                                onTap: _migrateUnfinishedTasksToToday,
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 400),
+                                  curve: Curves.easeInOutCubic,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: RubyTheme.spacingL(context),
+                                    vertical: RubyTheme.spacingM(context),
+                                  ),
+                                  decoration: BoxDecoration(
+                                    gradient: RubyTheme.rubyGradient,
+                                    borderRadius: BorderRadius.circular(
+                                      RubyTheme.radiusLarge(context),
+                                    ),
+                                    boxShadow: RubyTheme.softShadow,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.schedule_rounded,
+                                        color: RubyTheme.pureWhite,
+                                        size: 20,
+                                      ),
+                                      SizedBox(
+                                        width: RubyTheme.spacingS(context),
+                                      ),
+                                      Text(
+                                        'نقل المهام غير المكتملة من الأيام الماضية',
+                                        style: RubyTheme.bodyLarge(context)
+                                            .copyWith(
+                                              color: RubyTheme.pureWhite,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                      SizedBox(
+                                        width: RubyTheme.spacingS(context),
+                                      ),
+                                      Container(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: RubyTheme.spacingS(
+                                            context,
+                                          ),
+                                          vertical: RubyTheme.spacingXS(
+                                            context,
+                                          ),
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: RubyTheme.pureWhite
+                                              .withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(
+                                            RubyTheme.radiusMedium(context),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          '${_getUnfinishedTasksCountInPastDays()}',
+                                          style: RubyTheme.bodyMedium(context)
+                                              .copyWith(
+                                                color: RubyTheme.pureWhite,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+
                           // Task list
                           Expanded(
                             child: dayTasks.isEmpty
