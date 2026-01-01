@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:ruby/presentation/views/home.dart';
+import 'package:ruby/features/weekly_view/views/weekly_view_page.dart';
+import 'package:ruby/core/services/local_notification_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize notification service
+  await LocalNotificationService.instance.initialize();
+
   runApp(const Ruby());
 }
 
@@ -12,7 +18,7 @@ class Ruby extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: const Todo(),
+      home: const WeeklyViewPage(),
       theme: ThemeData(
         fontFamily: 'NotoSansArabic',
         textTheme: const TextTheme(

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../core/models/task.dart';
+import '../../core/models/chat_message.dart';
 import '../../core/theme/ruby_theme.dart';
 import '../../core/services/storage_service.dart';
+import '../../core/services/chat_history_service.dart';
+import '../../core/services/sound_service.dart';
 import '../widgets/task_bubble.dart';
 import '../widgets/chat_input.dart';
+import '../widgets/chat_message_bubble.dart';
 
 class Todo extends StatefulWidget {
   const Todo({super.key});
@@ -18,6 +22,8 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
   late PageController _pageController;
   int _selectedIndex = 0;
   Map<String, List<Task>> _tasks = {};
+  final Map<String, List<ChatMessage>> _chatHistory = {};
+  final Map<String, ScrollController> _dayScrollControllers = {};
 
   // Current week's dates (starts from Saturday)
   List<DateTime> _currentWeekDates = [];
@@ -62,15 +68,7 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
         setState(() {
           _selectedIndex = _tabController.index;
         });
-        // Sync PageController with TabController only if it's attached
-        if (_pageController.hasClients) {
-          _pageController.animateToPage(
-            _tabController.index,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOutCubic,
-          );
-        }
-        // Auto-scroll to keep selected tab in view with reduced delay
+        // Auto-scroll to keep selected tab in view
         _scrollToSelectedTab(_tabController.index);
       }
     });
@@ -81,6 +79,9 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
         if (pageIndex != _selectedIndex &&
             pageIndex >= 0 &&
             pageIndex < _weekDays.length) {
+          setState(() {
+            _selectedIndex = pageIndex;
+          });
           // Only update tab controller if it's not already at the correct index
           if (_tabController.index != pageIndex) {
             _tabController.animateTo(pageIndex);
@@ -124,6 +125,8 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
     for (DateTime date in _currentWeekDates) {
       final dateKey = _getDateKey(date);
       _tasks[dateKey] = [];
+      _chatHistory[dateKey] = [];
+      _dayScrollControllers[dateKey] = ScrollController();
     }
   }
 
@@ -211,6 +214,16 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
       _tasks[dateKey] = _tasks[dateKey] ?? [];
       _tasks[dateKey]!.add(task);
     });
+
+    // Add chat message for task creation
+    ChatHistoryService.addMessage(
+      ChatHistoryService.createTaskCreatedMessage(
+        taskId: DateTime.now().millisecondsSinceEpoch.toString(),
+        taskText: taskText,
+        dayKey: dateKey,
+      ),
+    ).then((_) => _loadChatHistoryForDay(dateKey));
+
     // Save tasks after adding
     _saveTasks();
   }
@@ -222,10 +235,34 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
         final taskIndex = dayTasks.indexWhere((task) => task.id == taskId);
         if (taskIndex != -1) {
           final task = dayTasks[taskIndex];
+          final wasCompleted = task.isCompleted;
           dayTasks[taskIndex] = task.copyWith(
             isCompleted: !task.isCompleted,
             completedAt: !task.isCompleted ? DateTime.now() : null,
           );
+
+          // Add chat message for task completion/uncompletion
+          if (!wasCompleted) {
+            // Task was completed - play completion sound
+            SoundService.instance.playTaskCompletionSound();
+
+            ChatHistoryService.addMessage(
+              ChatHistoryService.createTaskCompletedMessage(
+                taskId: taskId,
+                taskText: task.text,
+                dayKey: dateKey,
+              ),
+            ).then((_) => _loadChatHistoryForDay(dateKey));
+          } else {
+            // Task was uncompleted
+            ChatHistoryService.addMessage(
+              ChatHistoryService.createTaskUncompletedMessage(
+                taskId: taskId,
+                taskText: task.text,
+                dayKey: dateKey,
+              ),
+            ).then((_) => _loadChatHistoryForDay(dateKey));
+          }
         }
       }
     });
@@ -237,7 +274,25 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
     setState(() {
       final dayTasks = _tasks[dateKey];
       if (dayTasks != null) {
-        dayTasks.removeWhere((task) => task.id == taskId);
+        final taskIndex = dayTasks.indexWhere((task) => task.id == taskId);
+        if (taskIndex != -1) {
+          final task = dayTasks[taskIndex];
+
+          // Add chat message for task deletion before removing
+          ChatHistoryService.addMessage(
+            ChatHistoryService.createTaskDeletedMessage(
+              taskId: taskId,
+              taskText: task.text,
+              dayKey: dateKey,
+            ),
+          ).then((_) => _loadChatHistoryForDay(dateKey));
+
+          // Mark task as deleted instead of removing completely
+          dayTasks[taskIndex] = task.copyWith(
+            isDeleted: true,
+            deletedAt: DateTime.now(),
+          );
+        }
       }
     });
     // Save tasks after deleting
@@ -248,6 +303,33 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
     final currentDate = _currentWeekDates[_selectedIndex];
     final dateKey = _getDateKey(currentDate);
     _addTask(dateKey, taskText);
+  }
+
+  void _restoreTask(String dateKey, String taskId) {
+    setState(() {
+      final dayTasks = _tasks[dateKey];
+      if (dayTasks != null) {
+        final taskIndex = dayTasks.indexWhere((task) => task.id == taskId);
+        if (taskIndex != -1) {
+          final task = dayTasks[taskIndex];
+          dayTasks[taskIndex] = task.copyWith(
+            isDeleted: false,
+            deletedAt: null,
+          );
+
+          // Add chat message for task restoration
+          ChatHistoryService.addMessage(
+            ChatHistoryService.createTaskRestoredMessage(
+              taskId: taskId,
+              taskText: task.text,
+              dayKey: dateKey,
+            ),
+          ).then((_) => _loadChatHistoryForDay(dateKey));
+        }
+      }
+    });
+    // Save tasks after restoring
+    _saveTasks();
   }
 
   bool _isTodayIndex(int index) {
@@ -276,8 +358,31 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
       }
     });
 
+    // Generate chat history for existing tasks (for app updates)
+    await ChatHistoryService.generateHistoryForExistingTasks(_tasks);
+
+    // Load chat history for all days
+    await _loadAllChatHistory();
+
     // Migrate incomplete tasks after loading
     await _migrateIncompleteTasks();
+  }
+
+  // Load chat history for a specific day
+  Future<void> _loadChatHistoryForDay(String dateKey) async {
+    final history = await ChatHistoryService.getChatHistoryForDay(dateKey);
+    setState(() {
+      _chatHistory[dateKey] = history.reversed
+          .toList(); // Reverse to show oldest first (chat style)
+    });
+  }
+
+  // Load chat history for all days
+  Future<void> _loadAllChatHistory() async {
+    for (DateTime date in _currentWeekDates) {
+      final dateKey = _getDateKey(date);
+      await _loadChatHistoryForDay(dateKey);
+    }
   }
 
   Future<void> _saveTasks() async {
@@ -355,8 +460,19 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
         final migratedTask = task.copyWith(
           dayOfWeek: currentSaturdayKey,
           isMigrated: true,
+          originalDayOfWeek: task.dayOfWeek,
         );
         _tasks[currentSaturdayKey]!.add(migratedTask);
+
+        // Add chat message for task migration
+        ChatHistoryService.addMessage(
+          ChatHistoryService.createTaskMigratedMessage(
+            taskId: task.id,
+            taskText: task.text,
+            fromDay: task.dayOfWeek,
+            toDay: currentSaturdayKey,
+          ),
+        ).then((_) => _loadChatHistoryForDay(currentSaturdayKey));
       }
 
       // Remove all incomplete tasks from previous week
@@ -384,6 +500,19 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
 
     // Save the migrated tasks
     await _saveTasks();
+
+    // Add weekly summary message
+    if (allIncompleteTasks.isNotEmpty) {
+      final totalTasks = allIncompleteTasks.length;
+      final migratedTasks = allIncompleteTasks.length;
+      ChatHistoryService.addMessage(
+        ChatHistoryService.createWeekSummaryMessage(
+          completedTasks: 0, // We don't track completed tasks in migration
+          totalTasks: totalTasks,
+          migratedTasks: migratedTasks,
+        ),
+      );
+    }
   }
 
   // Get week key for tracking migrations (format: "2025-W05")
@@ -453,8 +582,10 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
       final dateKey = _getDateKey(date);
       final dayTasks = _tasks[dateKey] ?? [];
 
-      // Count unfinished tasks
-      count += dayTasks.where((task) => !task.isCompleted).length;
+      // Count unfinished tasks (excluding deleted tasks)
+      count += dayTasks
+          .where((task) => !task.isCompleted && !task.isDeleted)
+          .length;
     }
 
     return count;
@@ -480,9 +611,9 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
       final dateKey = _getDateKey(date);
       final dayTasks = _tasks[dateKey] ?? [];
 
-      // Get unfinished tasks
+      // Get unfinished tasks (excluding deleted tasks)
       final unfinishedTasks = dayTasks
-          .where((task) => !task.isCompleted)
+          .where((task) => !task.isCompleted && !task.isDeleted)
           .toList();
 
       if (unfinishedTasks.isNotEmpty) {
@@ -491,19 +622,51 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
           final migratedTask = task.copyWith(
             dayOfWeek: todayKey,
             isMigrated: true,
+            originalDayOfWeek: task.dayOfWeek,
           );
           _tasks[todayKey]!.add(migratedTask);
           migratedCount++;
+
+          // Add chat message for task migration
+          ChatHistoryService.addMessage(
+            ChatHistoryService.createTaskMigratedMessage(
+              taskId: task.id,
+              taskText: task.text,
+              fromDay: task.dayOfWeek,
+              toDay: todayKey,
+            ),
+          ).then((_) => _loadChatHistoryForDay(todayKey));
         }
 
-        // Remove unfinished tasks from the past day
-        _tasks[dateKey]!.removeWhere((task) => !task.isCompleted);
+        // Remove unfinished tasks from the past day (excluding deleted tasks)
+        _tasks[dateKey]!.removeWhere(
+          (task) => !task.isCompleted && !task.isDeleted,
+        );
       }
     }
 
     if (migratedCount > 0) {
       // Save the migrated tasks
       await _saveTasks();
+
+      // Add daily summary message for migration
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final todayKey = _getDateKey(today);
+      final todayTasks = _tasks[todayKey] ?? [];
+      final completedTasks = todayTasks
+          .where((task) => task.isCompleted && !task.isDeleted)
+          .length;
+      final totalTasks = todayTasks.where((task) => !task.isDeleted).length;
+
+      ChatHistoryService.addMessage(
+        ChatHistoryService.createDaySummaryMessage(
+          dayKey: todayKey,
+          completedTasks: completedTasks,
+          totalTasks: totalTasks,
+          migratedTasks: migratedCount,
+        ),
+      );
 
       // Show success message
       if (mounted) {
@@ -534,6 +697,9 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
     _tabController.dispose();
     _tabScrollController.dispose();
     _pageController.dispose();
+    for (var controller in _dayScrollControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -567,13 +733,8 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                           setState(() {
                             _selectedIndex = index;
                           });
-                          // Animate tab controller
-                          _tabController.animateTo(
-                            index,
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOutCubic,
-                          );
-                          // Animate page controller
+
+                          // Animate page controller first
                           if (_pageController.hasClients) {
                             _pageController.animateToPage(
                               index,
@@ -581,6 +742,14 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                               curve: Curves.easeInOutCubic,
                             );
                           }
+
+                          // Animate tab controller
+                          _tabController.animateTo(
+                            index,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOutCubic,
+                          );
+
                           // Scroll to selected tab
                           _scrollToSelectedTab(index);
                         },
@@ -722,141 +891,96 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                         key: ValueKey(index), // Important for AnimatedSwitcher
                         children: [
                           // Migration button (only show on today if there are unfinished tasks in past days)
-                          if (isToday && _hasUnfinishedTasksInPastDays())
-                            Container(
-                              margin: EdgeInsets.symmetric(
-                                horizontal: RubyTheme.spacingM(context),
-                                vertical: RubyTheme.spacingS(context),
-                              ),
-                              child: GestureDetector(
-                                onTap: _migrateUnfinishedTasksToToday,
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 400),
-                                  curve: Curves.easeInOutCubic,
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: RubyTheme.spacingL(context),
-                                    vertical: RubyTheme.spacingM(context),
-                                  ),
-                                  decoration: BoxDecoration(
-                                    gradient: RubyTheme.rubyGradient,
-                                    borderRadius: BorderRadius.circular(
-                                      RubyTheme.radiusLarge(context),
-                                    ),
-                                    boxShadow: RubyTheme.softShadow,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.schedule_rounded,
-                                        color: RubyTheme.pureWhite,
-                                        size: 20,
-                                      ),
-                                      SizedBox(
-                                        width: RubyTheme.spacingS(context),
-                                      ),
-                                      Text(
-                                        'نقل المهام غير المكتملة من الأيام الماضية',
-                                        style: RubyTheme.bodyLarge(context)
-                                            .copyWith(
-                                              color: RubyTheme.pureWhite,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                                      SizedBox(
-                                        width: RubyTheme.spacingS(context),
-                                      ),
-                                      Container(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: RubyTheme.spacingS(
-                                            context,
-                                          ),
-                                          vertical: RubyTheme.spacingXS(
-                                            context,
-                                          ),
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: RubyTheme.pureWhite
-                                              .withOpacity(0.2),
-                                          borderRadius: BorderRadius.circular(
-                                            RubyTheme.radiusMedium(context),
-                                          ),
-                                        ),
-                                        child: Text(
-                                          '${_getUnfinishedTasksCountInPastDays()}',
-                                          style: RubyTheme.bodyMedium(context)
-                                              .copyWith(
-                                                color: RubyTheme.pureWhite,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
+                          // if (isToday && _hasUnfinishedTasksInPastDays())
+                          //   Container(
+                          //     margin: EdgeInsets.symmetric(
+                          //       horizontal: RubyTheme.spacingM(context),
+                          //       vertical: RubyTheme.spacingS(context),
+                          //     ),
+                          //     child: GestureDetector(
+                          //       onTap: _migrateUnfinishedTasksToToday,
+                          //       child: AnimatedContainer(
+                          //         duration: const Duration(milliseconds: 400),
+                          //         curve: Curves.easeInOutCubic,
+                          //         padding: EdgeInsets.symmetric(
+                          //           horizontal: RubyTheme.spacingL(context),
+                          //           vertical: RubyTheme.spacingM(context),
+                          //         ),
+                          //         decoration: BoxDecoration(
+                          //           gradient: RubyTheme.rubyGradient,
+                          //           borderRadius: BorderRadius.circular(
+                          //             RubyTheme.radiusLarge(context),
+                          //           ),
+                          //           boxShadow: RubyTheme.softShadow,
+                          //         ),
+                          //         child: Row(
+                          //           mainAxisAlignment: MainAxisAlignment.center,
+                          //           children: [
+                          //             Icon(
+                          //               Icons.schedule_rounded,
+                          //               color: RubyTheme.pureWhite,
+                          //               size: 20,
+                          //             ),
+                          //             SizedBox(
+                          //               width: RubyTheme.spacingS(context),
+                          //             ),
+                          //             Text(
+                          //               'نقل المهام غير المكتملة من الأيام الماضية',
+                          //               style: RubyTheme.bodyLarge(context)
+                          //                   .copyWith(
+                          //                     color: RubyTheme.pureWhite,
+                          //                     fontWeight: FontWeight.w600,
+                          //                   ),
+                          //             ),
+                          //             SizedBox(
+                          //               width: RubyTheme.spacingS(context),
+                          //             ),
+                          //             Container(
+                          //               padding: EdgeInsets.symmetric(
+                          //                 horizontal: RubyTheme.spacingS(
+                          //                   context,
+                          //                 ),
+                          //                 vertical: RubyTheme.spacingXS(
+                          //                   context,
+                          //                 ),
+                          //               ),
+                          //               decoration: BoxDecoration(
+                          //                 color: RubyTheme.pureWhite
+                          //                     .withOpacity(0.2),
+                          //                 borderRadius: BorderRadius.circular(
+                          //                   RubyTheme.radiusMedium(context),
+                          //                 ),
+                          //               ),
+                          //               child: Text(
+                          //                 '${_getUnfinishedTasksCountInPastDays()}',
+                          //                 style: RubyTheme.bodyMedium(context)
+                          //                     .copyWith(
+                          //                       color: RubyTheme.pureWhite,
+                          //                       fontWeight: FontWeight.w700,
+                          //                     ),
+                          //               ),
+                          //             ),
+                          //           ],
+                          //         ),
+                          //       ),
+                          //     ),
+                          //   ),
 
-                          // Task list
+                          // Chat History + Active Tasks
                           Expanded(
-                            child: dayTasks.isEmpty
-                                ? // Empty state
-                                  Container(
-                                    padding: EdgeInsets.all(
-                                      RubyTheme.spacingXXL(context),
-                                    ),
-                                    child: Center(
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            displayText,
-                                            style: RubyTheme.heading2(context)
-                                                .copyWith(
-                                                  color: RubyTheme.charcoal,
-                                                ),
-                                          ),
-                                          SizedBox(
-                                            height: RubyTheme.spacingS(context),
-                                          ),
-                                          Text(
-                                            'مفيش تاسكات النهارده',
-                                            style: RubyTheme.bodyLarge(context)
-                                                .copyWith(
-                                                  color: RubyTheme.mediumGray,
-                                                ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    padding: EdgeInsets.only(
-                                      top: RubyTheme.spacingM(context),
-                                      bottom: RubyTheme.spacingS(context),
-                                    ),
-                                    itemCount: dayTasks.length,
-                                    itemBuilder: (context, taskIndex) {
-                                      final task = dayTasks[taskIndex];
-                                      return TaskBubble(
-                                        task: task,
-                                        isToday: isToday,
-                                        onTap: () => _toggleTaskCompletion(
-                                          dateKey,
-                                          task.id,
-                                        ),
-                                        onLongPress: () =>
-                                            _showTaskOptions(dateKey, task.id),
-                                      );
-                                    },
-                                  ),
+                            child: _buildChatHistoryView(
+                              dateKey,
+                              dayTasks,
+                              displayText,
+                              isToday,
+                            ),
                           ),
 
                           // Chat input
                           ChatInput(
                             dayOfWeek: displayText,
                             onTaskAdded: _addTaskToCurrentDay,
+                            onTaskRestored: _restoreTask,
                           ),
                         ],
                       ),
@@ -866,6 +990,137 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  // Build chat history view (chat-like display)
+  Widget _buildChatHistoryView(
+    String dateKey,
+    List<Task> dayTasks,
+    String displayText,
+    bool isToday,
+  ) {
+    final history = _chatHistory[dateKey] ?? [];
+    final activeTasks = dayTasks.where((task) => !task.isDeleted).toList();
+
+    // If no history and no active tasks, show empty state
+    if (history.isEmpty && activeTasks.isEmpty) {
+      return Container(
+        padding: EdgeInsets.all(RubyTheme.spacingXXL(context)),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                displayText,
+                style: RubyTheme.heading2(
+                  context,
+                ).copyWith(color: RubyTheme.charcoal),
+              ),
+              SizedBox(height: RubyTheme.spacingS(context)),
+              Text(
+                'مفيش تاسكات النهارده',
+                style: RubyTheme.bodyLarge(
+                  context,
+                ).copyWith(color: RubyTheme.mediumGray),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Get scroll controller for this day
+    final scrollController =
+        _dayScrollControllers[dateKey] ?? ScrollController();
+
+    return ListView.builder(
+      controller: scrollController,
+      padding: EdgeInsets.only(
+        top: RubyTheme.spacingM(context),
+        bottom: RubyTheme.spacingS(context),
+      ),
+      itemCount: history.length + activeTasks.length,
+      itemBuilder: (context, index) {
+        // First show all chat history messages
+        if (index < history.length) {
+          final message = history[index];
+          return ChatMessageBubble(
+            message: message,
+            showTimestamp: true,
+            onLongPress: () {
+              if (message.type == ChatMessageType.taskDeleted) {
+                _showRestoreTaskDialog(dateKey, message);
+              }
+            },
+          );
+        }
+
+        // Then show active tasks
+        final taskIndex = index - history.length;
+        if (taskIndex < activeTasks.length) {
+          final task = activeTasks[taskIndex];
+          return TaskBubble(
+            task: task,
+            isToday: isToday,
+            onTap: () => _toggleTaskCompletion(dateKey, task.id),
+            onLongPress: () => _showTaskOptions(dateKey, task.id),
+          );
+        }
+
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  void _showRestoreTaskDialog(String dateKey, ChatMessage message) {
+    if (message.taskId == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: RubyTheme.pureWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(RubyTheme.radiusLarge(context)),
+          ),
+          title: Text(
+            'استعادة التاسك',
+            style: RubyTheme.heading2(
+              context,
+            ).copyWith(color: RubyTheme.charcoal),
+          ),
+          content: Text(
+            'هل تريد استعادة التاسك "${message.taskText}"؟',
+            style: RubyTheme.bodyLarge(context),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'إلغاء',
+                style: RubyTheme.bodyMedium(
+                  context,
+                ).copyWith(color: RubyTheme.mediumGray),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _restoreTask(dateKey, message.taskId!);
+              },
+              child: Text(
+                'استعادة',
+                style: RubyTheme.bodyMedium(context).copyWith(
+                  color: RubyTheme.emerald,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -905,7 +1160,7 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                   horizontal: RubyTheme.spacingL(context),
                 ),
                 child: Text(
-                  'خيارات المهمة',
+                  'خيارات التاسك',
                   style: RubyTheme.heading2(
                     context,
                   ).copyWith(color: RubyTheme.charcoal),
@@ -931,7 +1186,7 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                   ),
                 ),
                 title: Text(
-                  'حذف المهمة',
+                  'حذف التاسك',
                   style: RubyTheme.bodyLarge(
                     context,
                   ).copyWith(color: Colors.red, fontWeight: FontWeight.w500),

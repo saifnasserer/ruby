@@ -20,6 +20,11 @@ class RubyTheme {
   static const Color emerald = Color(0xFF00C853); // Success/Completion
   static const Color sapphire = Color(0xFF2196F3); // Info/Secondary
 
+  // Priority colors
+  static const Color priorityHigh = Color(0xFFFF5252); // Urgent red
+  static const Color priorityMedium = Color(0xFFFFA726); // Amber
+  static const Color priorityLow = Color(0xFF42A5F5); // Calm blue
+
   // Gradients
   static const LinearGradient rubyGradient = LinearGradient(
     begin: Alignment.topLeft,
@@ -31,6 +36,24 @@ class RubyTheme {
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: [pureWhite, softGray],
+  );
+
+  static const LinearGradient priorityHighGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [priorityHigh, Color(0xFFD32F2F)],
+  );
+
+  static const LinearGradient priorityMediumGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [priorityMedium, Color(0xFFF57C00)],
+  );
+
+  static const LinearGradient priorityLowGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [priorityLow, Color(0xFF1976D2)],
   );
 
   // Text styles - now responsive
