@@ -43,6 +43,13 @@ dependencies:
   
   # Audio player for task completion sounds
   audioplayers: ^6.0.0
+  
+  # Image picker for wallpaper selection
+  image_picker: ^1.0.7
+  record: ^6.1.2
+  path_provider: ^2.1.5
+  permission_handler: ^12.0.1
+  audio_waveforms: ^2.0.1
 
 dev_dependencies:
   flutter_test:

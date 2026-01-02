@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/ruby_theme.dart';
+import '../../core/services/audio_recorder_service.dart';
+import '../../features/settings/controllers/settings_controller.dart';
 
 class ChatInput extends StatefulWidget {
   final String dayOfWeek;
   final Function(String) onTaskAdded;
   final Function(String, String)? onTaskRestored;
+  final Function(String)? onVoiceTaskAdded;
+  final SettingsController? settingsController;
 
   const ChatInput({
     super.key,
     required this.dayOfWeek,
     required this.onTaskAdded,
     this.onTaskRestored,
+    this.onVoiceTaskAdded,
+    this.settingsController,
   });
 
   @override
@@ -20,7 +26,9 @@ class ChatInput extends StatefulWidget {
 class _ChatInputState extends State<ChatInput> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  final AudioRecorderService _audioRecorderService = AudioRecorderService();
   bool _isTyping = false;
+  bool _isRecording = false;
 
   @override
   void initState() {
@@ -36,6 +44,7 @@ class _ChatInputState extends State<ChatInput> {
   void dispose() {
     _controller.dispose();
     _focusNode.dispose();
+    _audioRecorderService.dispose();
     super.dispose();
   }
 
@@ -49,11 +58,50 @@ class _ChatInputState extends State<ChatInput> {
     }
   }
 
+  Future<void> _handleVoiceRecord() async {
+    if (_isRecording) {
+      // Stop recording
+      final path = await _audioRecorderService.stopRecording();
+      setState(() {
+        _isRecording = false;
+      });
+
+      if (path != null && widget.onVoiceTaskAdded != null) {
+        widget.onVoiceTaskAdded!(path);
+      }
+    } else {
+      // Start recording
+      final hasPermission = await _audioRecorderService.hasPermission();
+      if (hasPermission) {
+        final fileName = 'voice_task_${DateTime.now().millisecondsSinceEpoch}';
+        await _audioRecorderService.startRecording(fileName);
+        setState(() {
+          _isRecording = true;
+        });
+      } else {
+        // Handle permission denial
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('يجب السماح بالوصول للميكروفون لتسجيل الصوت'),
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Get theme color from settings or use default
+    final themeColor =
+        widget.settingsController?.backgroundColor ?? RubyTheme.pureWhite;
+    final isLightColor = themeColor.computeLuminance() > 0.5;
+    final accentColor = isLightColor ? RubyTheme.rubyRed : RubyTheme.rubyPink;
+
     return Container(
       decoration: BoxDecoration(
-        gradient: RubyTheme.softGradient,
+        color: themeColor,
         boxShadow: RubyTheme.softShadow,
       ),
       child: Container(
@@ -64,25 +112,32 @@ class _ChatInputState extends State<ChatInput> {
         child: SafeArea(
           child: Row(
             children: [
-              // Send button
+              // Send/Record button
               GestureDetector(
-                onTap: _isTyping ? _sendTask : null,
+                onTap: _isTyping ? _sendTask : _handleVoiceRecord,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   width: RubyTheme.spacingL(context) * 2,
                   height: RubyTheme.spacingL(context) * 2,
                   decoration: BoxDecoration(
-                    gradient: _isTyping ? RubyTheme.rubyGradient : null,
-                    color: _isTyping ? null : RubyTheme.softGray,
+                    color: _isTyping
+                        ? accentColor
+                        : (_isRecording ? Colors.red : RubyTheme.softGray),
                     shape: BoxShape.circle,
-                    boxShadow: _isTyping ? RubyTheme.softShadow : null,
+                    boxShadow: (_isTyping || _isRecording)
+                        ? RubyTheme.softShadow
+                        : null,
                   ),
                   child: Transform(
                     alignment: Alignment.center,
                     transform: Matrix4.identity()..scale(-1.0, 1.0),
                     child: Icon(
-                      Icons.send_rounded,
-                      color: _isTyping
+                      _isTyping
+                          ? Icons.send_rounded
+                          : (_isRecording
+                                ? Icons.stop_rounded
+                                : Icons.mic_rounded),
+                      color: _isTyping || _isRecording
                           ? RubyTheme.pureWhite
                           : RubyTheme.mediumGray,
                       size: 20,
@@ -93,7 +148,7 @@ class _ChatInputState extends State<ChatInput> {
 
               SizedBox(width: RubyTheme.spacingS(context)),
 
-              // Input field
+              // Input field (show "Recording..." when recording)
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
@@ -102,7 +157,9 @@ class _ChatInputState extends State<ChatInput> {
                       RubyTheme.radiusLarge(context),
                     ),
                     border: Border.all(
-                      color: RubyTheme.rubyPink.withOpacity(0.3),
+                      color: _isRecording
+                          ? Colors.red
+                          : accentColor.withOpacity(0.3),
                       width: 1.5,
                     ),
                     boxShadow: RubyTheme.softShadow,
@@ -113,11 +170,16 @@ class _ChatInputState extends State<ChatInput> {
                     textDirection: TextDirection.rtl,
                     maxLines: null,
                     textInputAction: TextInputAction.newline,
+                    enabled: !_isRecording, // Disable input while recording
                     decoration: InputDecoration(
-                      hintText: 'اكتب التاسك ...',
-                      hintStyle: RubyTheme.bodyMedium(
-                        context,
-                      ).copyWith(color: RubyTheme.mediumGray.withOpacity(0.6)),
+                      hintText: _isRecording
+                          ? 'جاري التسجيل...'
+                          : 'اكتب التاسك ...',
+                      hintStyle: RubyTheme.bodyMedium(context).copyWith(
+                        color: _isRecording
+                            ? Colors.red
+                            : RubyTheme.mediumGray.withOpacity(0.6),
+                      ),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.symmetric(
                         horizontal: RubyTheme.spacingM(context),

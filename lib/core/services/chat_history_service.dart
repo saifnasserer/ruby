@@ -167,7 +167,13 @@ class ChatHistoryService {
     required String taskId,
     required String taskText,
     required String dayKey,
+    Map<String, dynamic>? metadata,
   }) {
+    final Map<String, dynamic> finalMetadata = {'dayKey': dayKey};
+    if (metadata != null) {
+      finalMetadata.addAll(metadata);
+    }
+
     return ChatMessage(
       id: 'task_created_${taskId}_${DateTime.now().millisecondsSinceEpoch}',
       type: ChatMessageType.taskCreated,
@@ -175,7 +181,7 @@ class ChatHistoryService {
       timestamp: DateTime.now(),
       taskId: taskId,
       taskText: taskText,
-      metadata: {'dayKey': dayKey},
+      metadata: finalMetadata,
     );
   }
 

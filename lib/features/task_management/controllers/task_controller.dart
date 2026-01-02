@@ -35,6 +35,26 @@ class TaskController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Add a full task object
+  void addTaskObject(String dateKey, Task task) {
+    _tasks[dateKey] = _tasks[dateKey] ?? [];
+    _tasks[dateKey]!.add(task);
+
+    // Add chat message for task creation
+    ChatHistoryService.addMessage(
+      ChatHistoryService.createTaskCreatedMessage(
+        taskId: task.id,
+        taskText: task.text,
+        dayKey: dateKey,
+        metadata: task.audioPath != null ? {'audioPath': task.audioPath} : null,
+      ),
+    );
+
+    // Save tasks after adding
+    _saveTasks();
+    notifyListeners();
+  }
+
   /// Toggle task completion
   void toggleTaskCompletion(String dateKey, String taskId) {
     final dayTasks = _tasks[dateKey];

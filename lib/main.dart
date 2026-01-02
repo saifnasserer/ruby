@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ruby/features/weekly_view/views/weekly_view_page.dart';
 import 'package:ruby/core/services/local_notification_service.dart';
+import 'package:ruby/features/settings/controllers/settings_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -8,17 +10,23 @@ void main() async {
   // Initialize notification service
   await LocalNotificationService.instance.initialize();
 
-  runApp(const Ruby());
+  // Initialize settings
+  final prefs = await SharedPreferences.getInstance();
+  final settingsController = SettingsController(prefs);
+
+  runApp(Ruby(settingsController: settingsController));
 }
 
 class Ruby extends StatelessWidget {
-  const Ruby({super.key});
+  final SettingsController settingsController;
+
+  const Ruby({super.key, required this.settingsController});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: const WeeklyViewPage(),
+      home: WeeklyViewPage(settingsController: settingsController),
       theme: ThemeData(
         fontFamily: 'NotoSansArabic',
         textTheme: const TextTheme(

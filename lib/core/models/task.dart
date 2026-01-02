@@ -84,7 +84,9 @@ class Task {
   final List<String> tags;
   final DateTime? updatedAt;
   final List<Subtask> subtasks;
+
   final DateTime? deadlineDate;
+  final String? audioPath;
 
   Task({
     required this.id,
@@ -103,6 +105,8 @@ class Task {
     this.updatedAt,
     this.subtasks = const [],
     this.deadlineDate,
+
+    this.audioPath,
   });
 
   Task copyWith({
@@ -122,6 +126,7 @@ class Task {
     DateTime? updatedAt,
     List<Subtask>? subtasks,
     DateTime? deadlineDate,
+    String? audioPath,
   }) {
     return Task(
       id: id ?? this.id,
@@ -138,8 +143,10 @@ class Task {
       category: category ?? this.category,
       tags: tags ?? this.tags,
       updatedAt: updatedAt ?? this.updatedAt,
+
       subtasks: subtasks ?? this.subtasks,
       deadlineDate: deadlineDate ?? this.deadlineDate,
+      audioPath: audioPath ?? this.audioPath,
     );
   }
 
@@ -159,8 +166,10 @@ class Task {
       'category': category,
       'tags': tags,
       'updatedAt': updatedAt?.toIso8601String(),
+
       'subtasks': subtasks.map((s) => s.toJson()).toList(),
       'deadlineDate': deadlineDate?.toIso8601String(),
+      'audioPath': audioPath,
     };
   }
 
@@ -194,6 +203,7 @@ class Task {
       deadlineDate: json['deadlineDate'] != null
           ? DateTime.parse(json['deadlineDate'] as String)
           : null,
+      audioPath: json['audioPath'] as String?,
     );
   }
 }

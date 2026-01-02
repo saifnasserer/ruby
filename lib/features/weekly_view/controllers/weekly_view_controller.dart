@@ -31,9 +31,13 @@ class WeeklyViewController extends ChangeNotifier {
   List<DateTime> get currentWeekDates => _currentWeekDates;
   List<String> get weekDays => _weekDays;
 
+  WeeklyViewController() {
+    _initializeCurrentWeek();
+  }
+
   /// Initialize the weekly view controller
   void initialize(TickerProvider vsync) {
-    // Initialize current week dates first
+    // Current week dates are already initialized in constructor, but refresh just in case
     _initializeCurrentWeek();
 
     // Find today's index for PageController initialization
@@ -166,6 +170,11 @@ class WeeklyViewController extends ChangeNotifier {
 
   /// Get current date key
   String getCurrentDateKey() {
+    if (_currentWeekDates.isEmpty ||
+        _selectedIndex < 0 ||
+        _selectedIndex >= _currentWeekDates.length) {
+      return _taskService.getTodayDateKey();
+    }
     return getDateKey(_currentWeekDates[_selectedIndex]);
   }
 
