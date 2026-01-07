@@ -8,7 +8,7 @@ class SlideableTaskInput extends StatefulWidget {
   final String dayOfWeek;
   final Function(String) onTaskAdded;
   final Function(String, String)? onTaskRestored;
-  final Function(String)? onVoiceTaskAdded;
+  final Function(String, String?)? onVoiceTaskAdded;
   final SettingsController settingsController;
 
   const SlideableTaskInput({
@@ -26,113 +26,128 @@ class SlideableTaskInput extends StatefulWidget {
 
 class _SlideableTaskInputState extends State<SlideableTaskInput>
     with SingleTickerProviderStateMixin {
-  late ScrollController _scrollController;
   late AnimationController _animationController;
   late Animation<double> _animation;
-
-  double get _screenWidth => MediaQuery.of(context).size.width;
+  double _dragOffset = 0.0;
+  final double _actionThreshold = 0.4; // 40% swipe to snap
 
   @override
   void initState() {
     super.initState();
-    // Layout: [Input, Buttons].
-    // RTL: Input is at Start (Right). Buttons at End (Left).
-    // Start at 0 (Input).
-    _scrollController = ScrollController(); // Starts at 0
-
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
     _animation = Tween<double>(begin: 0, end: 0).animate(_animationController);
+
+    _animationController.addListener(() {
+      setState(() {
+        _dragOffset = _animation.value;
+      });
+    });
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
     _animationController.dispose();
     super.dispose();
   }
 
-  void _handleDragUpdate(DragUpdateDetails details) {
-    if (!_scrollController.hasClients) return;
-    // Inverted Drag Logic:
-    // Drag Right (Delta > 0) -> Increase Offset (Move towards Buttons).
-    // Drag Left (Delta < 0) -> Decrease Offset (Move towards Input).
-    _scrollController.jumpTo(_scrollController.offset + details.primaryDelta!);
+  void _handleDragUpdate(DragUpdateDetails details, double maxWidth) {
+    if (_animationController.isAnimating) return;
+
+    // RTL: Dragging RIGHT (positive delta) reveals LEFT actions
+    // So we add the delta to the offset
+    double newOffset = _dragOffset + details.primaryDelta!;
+
+    // STRICT CLAMPING: 0 to maxWidth
+    // 0 = Closed (Input visible)
+    // maxWidth = Open (Actions visible)
+    newOffset = newOffset.clamp(0.0, maxWidth);
+
+    setState(() {
+      _dragOffset = newOffset;
+    });
   }
 
-  void _handleDragEnd(DragEndDetails details) {
-    if (!_scrollController.hasClients) return;
-
-    final currentOffset = _scrollController.offset;
+  void _handleDragEnd(DragEndDetails details, double maxWidth) {
+    // Determine snap target
     final velocity = details.primaryVelocity ?? 0;
-    final threshold = _screenWidth / 2;
+    final double targetOffset;
 
-    double targetOffset;
-
-    // Snapping logic
-    // 0 = Input. Width = Buttons.
-    // If we are closer to Width (Buttons) or velocity throws us there (Right Swipe > 0):
-    if (velocity > 500 || (velocity > -500 && currentOffset > threshold)) {
-      targetOffset = _screenWidth; // Show Buttons
+    // Snap logic:
+    // If velocity is high towards Right (> 500) -> Open
+    // If velocity is high towards Left (< -500) -> Close
+    // Otherwise, check position threshold
+    if (velocity > 500) {
+      targetOffset = maxWidth; // Open
+    } else if (velocity < -500) {
+      targetOffset = 0; // Close
     } else {
-      targetOffset = 0; // Show Input
+      if (_dragOffset > maxWidth * _actionThreshold) {
+        targetOffset = maxWidth; // Open
+      } else {
+        targetOffset = 0; // Close
+      }
     }
 
     _animateTo(targetOffset);
   }
 
   void _animateTo(double target) {
-    final start = _scrollController.offset;
-    _animation = Tween<double>(begin: start, end: target).animate(
+    _animation = Tween<double>(begin: _dragOffset, end: target).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
     );
 
     _animationController.reset();
     _animationController.forward();
-    _animationController.addListener(() {
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(_animation.value);
-      }
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onHorizontalDragUpdate: _handleDragUpdate,
-      onHorizontalDragEnd: _handleDragEnd,
-      child: SingleChildScrollView(
-        controller: _scrollController,
-        scrollDirection: Axis.horizontal,
-        physics: const NeverScrollableScrollPhysics(), // Manual control
-        child: IntrinsicHeight(
-          child: Directionality(
-            textDirection: TextDirection.rtl,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Child 0: Input Field (Right side in RTL, Offset 0)
-                SizedBox(
-                  width: _screenWidth,
-                  child: ChatInput(
-                    dayOfWeek: widget.dayOfWeek,
-                    onTaskAdded: widget.onTaskAdded,
-                    onTaskRestored: widget.onTaskRestored,
-                    onVoiceTaskAdded: widget.onVoiceTaskAdded,
-                    settingsController: widget.settingsController,
-                  ),
-                ),
+    return Container(
+      margin: EdgeInsets.all(RubyTheme.spacingM(context)),
+      decoration: BoxDecoration(
+        color: RubyTheme.surface(context),
+        borderRadius: BorderRadius.circular(100),
+        boxShadow: RubyTheme.softShadow(context),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(100),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final maxWidth = constraints.maxWidth;
 
-                // Child 1: Quick Actions (Left side in RTL, Offset Width)
-                SizedBox(
-                  width: _screenWidth,
-                  child: _buildQuickActionsRow(context),
-                ),
-              ],
-            ),
-          ),
+            return GestureDetector(
+              onHorizontalDragUpdate: (details) =>
+                  _handleDragUpdate(details, maxWidth),
+              onHorizontalDragEnd: (details) =>
+                  _handleDragEnd(details, maxWidth),
+              child: Stack(
+                children: [
+                  // Layer 1: Background Actions (Always visible underneath)
+                  Positioned.fill(child: _buildQuickActionsRow(context)),
+
+                  // Layer 2: Foreground Input (Sliding)
+                  // We use Transform to slide it right
+                  Transform.translate(
+                    offset: Offset(_dragOffset, 0),
+                    child: Container(
+                      // Ensure opaque background to hide actions when closed
+                      color: RubyTheme.surface(context),
+                      child: ChatInput(
+                        dayOfWeek: widget.dayOfWeek,
+                        onTaskAdded: widget.onTaskAdded,
+                        onTaskRestored: widget.onTaskRestored,
+                        onVoiceTaskAdded: widget.onVoiceTaskAdded,
+                        settingsController: widget.settingsController,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
@@ -140,7 +155,7 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
 
   Widget _buildQuickActionsRow(BuildContext context) {
     // Match theme color from ChatInput
-    final themeColor = widget.settingsController.backgroundColor;
+    final themeColor = RubyTheme.surface(context);
 
     return Container(
       color: themeColor,
@@ -151,7 +166,7 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
           _buildQuickActionButton(
             context,
             icon: Icons.settings,
-            color: RubyTheme.mediumGray,
+            color: RubyTheme.surfaceVariant(context),
             label: 'الإعدادات',
             onTap: () {
               Navigator.push(
@@ -169,7 +184,7 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
           _buildQuickActionButton(
             context,
             icon: Icons.calendar_month,
-            color: RubyTheme.mediumGray,
+            color: RubyTheme.surfaceVariant(context),
             label: 'التاريخ',
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -181,7 +196,7 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
           _buildQuickActionButton(
             context,
             icon: Icons.search,
-            color: RubyTheme.mediumGray,
+            color: RubyTheme.surfaceVariant(context),
             label: 'بحث',
             onTap: () {
               ScaffoldMessenger.of(
@@ -206,13 +221,14 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
       child: Container(
         padding: EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: RubyTheme.mediumGray,
+          color:
+              color, // Passed from buildQuickActionsRow, which is surfaceVariant
           shape: BoxShape.circle,
           // boxShadow: RubyTheme.softShadow,
         ),
         child: Icon(
           icon,
-          color: RubyTheme.pureWhite,
+          color: RubyTheme.textPrimary(context),
           size: 24,
         ), // Bigger icon (26->28)
       ),

@@ -24,29 +24,61 @@ class Ruby extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: WeeklyViewPage(settingsController: settingsController),
-      theme: ThemeData(
-        fontFamily: 'NotoSansArabic',
-        textTheme: const TextTheme(
-          displayLarge: TextStyle(fontFamily: 'NotoSansArabic'),
-          displayMedium: TextStyle(fontFamily: 'NotoSansArabic'),
-          displaySmall: TextStyle(fontFamily: 'NotoSansArabic'),
-          headlineLarge: TextStyle(fontFamily: 'NotoSansArabic'),
-          headlineMedium: TextStyle(fontFamily: 'NotoSansArabic'),
-          headlineSmall: TextStyle(fontFamily: 'NotoSansArabic'),
-          titleLarge: TextStyle(fontFamily: 'NotoSansArabic'),
-          titleMedium: TextStyle(fontFamily: 'NotoSansArabic'),
-          titleSmall: TextStyle(fontFamily: 'NotoSansArabic'),
-          bodyLarge: TextStyle(fontFamily: 'NotoSansArabic'),
-          bodyMedium: TextStyle(fontFamily: 'NotoSansArabic'),
-          bodySmall: TextStyle(fontFamily: 'NotoSansArabic'),
-          labelLarge: TextStyle(fontFamily: 'NotoSansArabic'),
-          labelMedium: TextStyle(fontFamily: 'NotoSansArabic'),
-          labelSmall: TextStyle(fontFamily: 'NotoSansArabic'),
-        ),
-      ),
+    return AnimatedBuilder(
+      animation: settingsController,
+      builder: (context, child) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          themeMode: settingsController.isDarkMode
+              ? ThemeMode.dark
+              : ThemeMode.light,
+          theme: ThemeData(
+            brightness: Brightness.light,
+            fontFamily: 'NotoSansArabic',
+            scaffoldBackgroundColor: const Color(0xFFFFFFFF),
+            textTheme: const TextTheme(
+              displayLarge: TextStyle(fontFamily: 'NotoSansArabic'),
+              displayMedium: TextStyle(fontFamily: 'NotoSansArabic'),
+              displaySmall: TextStyle(fontFamily: 'NotoSansArabic'),
+              headlineLarge: TextStyle(fontFamily: 'NotoSansArabic'),
+              headlineMedium: TextStyle(fontFamily: 'NotoSansArabic'),
+              headlineSmall: TextStyle(fontFamily: 'NotoSansArabic'),
+              titleLarge: TextStyle(fontFamily: 'NotoSansArabic'),
+              titleMedium: TextStyle(fontFamily: 'NotoSansArabic'),
+              titleSmall: TextStyle(fontFamily: 'NotoSansArabic'),
+              bodyLarge: TextStyle(fontFamily: 'NotoSansArabic'),
+              bodyMedium: TextStyle(fontFamily: 'NotoSansArabic'),
+              bodySmall: TextStyle(fontFamily: 'NotoSansArabic'),
+              labelLarge: TextStyle(fontFamily: 'NotoSansArabic'),
+              labelMedium: TextStyle(fontFamily: 'NotoSansArabic'),
+              labelSmall: TextStyle(fontFamily: 'NotoSansArabic'),
+            ),
+          ),
+          darkTheme: ThemeData(
+            brightness: Brightness.dark,
+            fontFamily: 'NotoSansArabic',
+            scaffoldBackgroundColor: const Color(0xFF121212),
+            textTheme: const TextTheme(
+              displayLarge: TextStyle(fontFamily: 'NotoSansArabic'),
+              displayMedium: TextStyle(fontFamily: 'NotoSansArabic'),
+              displaySmall: TextStyle(fontFamily: 'NotoSansArabic'),
+              headlineLarge: TextStyle(fontFamily: 'NotoSansArabic'),
+              headlineMedium: TextStyle(fontFamily: 'NotoSansArabic'),
+              headlineSmall: TextStyle(fontFamily: 'NotoSansArabic'),
+              titleLarge: TextStyle(fontFamily: 'NotoSansArabic'),
+              titleMedium: TextStyle(fontFamily: 'NotoSansArabic'),
+              titleSmall: TextStyle(fontFamily: 'NotoSansArabic'),
+              bodyLarge: TextStyle(fontFamily: 'NotoSansArabic'),
+              bodyMedium: TextStyle(fontFamily: 'NotoSansArabic'),
+              bodySmall: TextStyle(fontFamily: 'NotoSansArabic'),
+              labelLarge: TextStyle(fontFamily: 'NotoSansArabic'),
+              labelMedium: TextStyle(fontFamily: 'NotoSansArabic'),
+              labelSmall: TextStyle(fontFamily: 'NotoSansArabic'),
+            ),
+          ),
+          home: WeeklyViewPage(settingsController: settingsController),
+        );
+      },
     );
   }
 }

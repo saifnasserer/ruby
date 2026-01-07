@@ -2,18 +2,17 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme/ruby_theme.dart';
 import '../../core/models/task.dart';
+import '../../core/utils/date_formatter.dart';
 
 class TaskBubble extends StatefulWidget {
   final Task task;
   final VoidCallback? onTap;
-  final VoidCallback? onLongPress;
   final bool isToday;
 
   const TaskBubble({
     super.key,
     required this.task,
     this.onTap,
-    this.onLongPress,
     this.isToday = false,
   });
 
@@ -66,6 +65,13 @@ class _TaskBubbleState extends State<TaskBubble>
     }
 
     _setupAudioPlayer();
+    _initAudioSource();
+  }
+
+  Future<void> _initAudioSource() async {
+    if (widget.task.audioPath != null) {
+      await _audioPlayer.setSource(DeviceFileSource(widget.task.audioPath!));
+    }
   }
 
   void _setupAudioPlayer() {
@@ -111,7 +117,7 @@ class _TaskBubbleState extends State<TaskBubble>
     if (_isPlaying) {
       await _audioPlayer.pause();
     } else {
-      await _audioPlayer.play(DeviceFileSource(widget.task.audioPath!));
+      await _audioPlayer.resume();
     }
   }
 
@@ -133,7 +139,6 @@ class _TaskBubbleState extends State<TaskBubble>
             opacity: _opacityAnimation.value,
             child: GestureDetector(
               onTap: widget.onTap,
-              onLongPress: widget.onLongPress,
               child: Container(
                 margin: EdgeInsets.symmetric(
                   horizontal: RubyTheme.spacingM(context),
@@ -162,10 +167,12 @@ class _TaskBubbleState extends State<TaskBubble>
                           borderRadius: BorderRadius.circular(
                             RubyTheme.radiusLarge(context),
                           ),
-                          boxShadow: RubyTheme.softShadow,
+                          boxShadow: RubyTheme.softShadow(context),
                           border: widget.task.isCompleted
                               ? Border.all(
-                                  color: RubyTheme.emerald.withOpacity(0.3),
+                                  color: RubyTheme.success(
+                                    context,
+                                  ).withOpacity(0.3),
                                   width: 1,
                                 )
                               : _getPriorityBorder(),
@@ -176,49 +183,49 @@ class _TaskBubbleState extends State<TaskBubble>
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   // Priority indicator bar (left edge)
-                                  if (!widget.task.isCompleted &&
-                                      widget.task.priority !=
-                                          TaskPriority.normal)
-                                    Container(
-                                      width: 4,
-                                      height: 40,
-                                      decoration: BoxDecoration(
-                                        color: _getPriorityColor(),
-                                        borderRadius: BorderRadius.circular(2),
-                                      ),
-                                    ),
-                                  if (!widget.task.isCompleted &&
-                                      widget.task.priority !=
-                                          TaskPriority.normal)
-                                    SizedBox(
-                                      width: RubyTheme.spacingS(context),
-                                    ),
+                                  // if (!widget.task.isCompleted &&
+                                  //     widget.task.priority !=
+                                  //         TaskPriority.normal)
+                                  //   Container(
+                                  //     width: 4,
+                                  //     height: 40,
+                                  //     decoration: BoxDecoration(
+                                  //       color: _getPriorityColor(),
+                                  //       borderRadius: BorderRadius.circular(2),
+                                  //     ),
+                                  //   ),
+                                  // if (!widget.task.isCompleted &&
+                                  //     widget.task.priority !=
+                                  //         TaskPriority.normal)
+                                  //   SizedBox(
+                                  //     width: RubyTheme.spacingS(context),
+                                  //   ),
 
-                                  // Completion indicator
-                                  Container(
-                                    padding: const EdgeInsets.all(2),
-                                    decoration: BoxDecoration(
-                                      color: widget.task.isCompleted
-                                          ? RubyTheme.emerald
-                                          : RubyTheme.pureWhite.withOpacity(
-                                              0.2,
-                                            ),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      widget.task.isCompleted
-                                          ? Icons.check_rounded
-                                          : Icons.circle_outlined,
-                                      color: widget.task.isCompleted
-                                          ? RubyTheme.pureWhite
-                                          : RubyTheme.pureWhite.withOpacity(
-                                              0.8,
-                                            ),
-                                      size: 16,
-                                    ),
-                                  ),
+                                  // // Completion indicator
+                                  // Container(
+                                  //   padding: const EdgeInsets.all(2),
+                                  //   decoration: BoxDecoration(
+                                  //     color: widget.task.isCompleted
+                                  //         ? RubyTheme.emerald
+                                  //         : RubyTheme.pureWhite.withOpacity(
+                                  //             0.2,
+                                  //           ),
+                                  //     shape: BoxShape.circle,
+                                  //   ),
+                                  //   child: Icon(
+                                  //     widget.task.isCompleted
+                                  //         ? Icons.check_rounded
+                                  //         : Icons.circle_outlined,
+                                  //     color: widget.task.isCompleted
+                                  //         ? RubyTheme.pureWhite
+                                  //         : RubyTheme.pureWhite.withOpacity(
+                                  //             0.8,
+                                  //           ),
+                                  //     size: 16,
+                                  //   ),
+                                  // ),
 
-                                  SizedBox(width: RubyTheme.spacingS(context)),
+                                  // SizedBox(width: RubyTheme.spacingS(context)),
 
                                   // Task text and metadata
                                   Flexible(
@@ -234,18 +241,17 @@ class _TaskBubbleState extends State<TaskBubble>
                                           overflow: TextOverflow.ellipsis,
                                           style: RubyTheme.bodyLarge(context)
                                               .copyWith(
-                                                color: widget.task.isCompleted
-                                                    ? RubyTheme.darkGray
-                                                          .withOpacity(0.7)
-                                                    : RubyTheme.pureWhite,
+                                                fontWeight: FontWeight.w600,
                                                 decoration:
                                                     widget.task.isCompleted
                                                     ? TextDecoration.lineThrough
                                                     : null,
-                                                fontWeight:
-                                                    widget.task.isCompleted
-                                                    ? FontWeight.w400
-                                                    : FontWeight.w500,
+                                                color: widget.task.isCompleted
+                                                    ? RubyTheme.textSecondary(
+                                                        context,
+                                                      ).withOpacity(0.5)
+                                                    : RubyTheme
+                                                          .pureWhite, // White text for active tasks
                                               ),
                                         ),
 
@@ -292,16 +298,12 @@ class _TaskBubbleState extends State<TaskBubble>
                                                               widget
                                                                   .task
                                                                   .isCompleted
-                                                              ? RubyTheme
-                                                                    .darkGray
-                                                                    .withOpacity(
-                                                                      0.5,
-                                                                    )
-                                                              : RubyTheme
-                                                                    .pureWhite
-                                                                    .withOpacity(
-                                                                      0.7,
-                                                                    ),
+                                                              ? RubyTheme.textSecondary(
+                                                                  context,
+                                                                )
+                                                              : RubyTheme.textTertiary(
+                                                                  context,
+                                                                ),
                                                           fontSize: 11,
                                                           fontWeight:
                                                               FontWeight.w600,
@@ -318,67 +320,37 @@ class _TaskBubbleState extends State<TaskBubble>
                                                 if (widget.task.deadlineDate !=
                                                         null &&
                                                     !widget.task.isCompleted)
-                                                  Row(
-                                                    children: [
-                                                      Icon(
-                                                        Icons.alarm_rounded,
-                                                        size: 14,
-                                                        color:
-                                                            RubyTheme.pureWhite,
-                                                      ),
-                                                      SizedBox(
-                                                        width:
-                                                            RubyTheme.spacingXS(
-                                                              context,
-                                                            ) /
-                                                            2,
-                                                      ),
-                                                      Text(
-                                                        'موعد نهائي قادم',
-                                                        style:
-                                                            RubyTheme.caption(
-                                                              context,
-                                                            ).copyWith(
-                                                              color: RubyTheme
-                                                                  .pureWhite,
-                                                              fontSize: 11,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                            ),
-                                                      ),
-                                                    ],
-                                                  ),
+                                                  _buildDeadlineBadge(),
                                               ],
                                             ),
                                           ),
 
                                         // Category and tags
-                                        if (widget.task.category != null ||
-                                            widget.task.tags.isNotEmpty)
-                                          Padding(
-                                            padding: EdgeInsets.only(
-                                              top:
-                                                  RubyTheme.spacingXS(context) /
-                                                  2,
-                                            ),
-                                            child: Wrap(
-                                              spacing: RubyTheme.spacingXS(
-                                                context,
-                                              ),
-                                              runSpacing:
-                                                  RubyTheme.spacingXS(context) /
-                                                  2,
-                                              children: [
-                                                if (widget.task.category !=
-                                                    null)
-                                                  _buildCategoryChip(),
-                                                ...widget.task.tags.map(
-                                                  (tag) => _buildTagChip(tag),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
+                                        // if (widget.task.category != null ||
+                                        //     widget.task.tags.isNotEmpty)
+                                        //   Padding(
+                                        //     padding: EdgeInsets.only(
+                                        //       top:
+                                        //           RubyTheme.spacingXS(context) /
+                                        //           2,
+                                        //     ),
+                                        //     child: Wrap(
+                                        //       spacing: RubyTheme.spacingXS(
+                                        //         context,
+                                        //       ),
+                                        //       runSpacing:
+                                        //           RubyTheme.spacingXS(context) /
+                                        //           2,
+                                        //       children: [
+                                        //         if (widget.task.category !=
+                                        //             null)
+                                        //           _buildCategoryChip(),
+                                        //         ...widget.task.tags.map(
+                                        //           (tag) => _buildTagChip(tag),
+                                        //         ),
+                                        //       ],
+                                        //     ),
+                                        //   ),
                                       ],
                                     ),
                                   ),
@@ -399,9 +371,9 @@ class _TaskBubbleState extends State<TaskBubble>
                           children: [
                             Text(
                               _formatTime(widget.task.createdAt),
-                              style: RubyTheme.caption(
-                                context,
-                              ).copyWith(color: RubyTheme.mediumGray),
+                              style: RubyTheme.caption(context).copyWith(
+                                color: RubyTheme.textSecondary(context),
+                              ),
                             ),
                             if (widget.task.isMigrated)
                               Container(
@@ -435,61 +407,61 @@ class _TaskBubbleState extends State<TaskBubble>
     );
   }
 
-  Widget _buildCategoryChip() {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: RubyTheme.spacingS(context) / 2,
-        vertical: RubyTheme.spacingXS(context) / 2,
-      ),
-      decoration: BoxDecoration(
-        color: widget.task.isCompleted
-            ? RubyTheme.mediumGray.withOpacity(0.2)
-            : RubyTheme.pureWhite.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(RubyTheme.radiusSmall(context)),
-      ),
-      child: Text(
-        widget.task.category!,
-        style: RubyTheme.caption(context).copyWith(
-          color: widget.task.isCompleted
-              ? RubyTheme.darkGray.withOpacity(0.6)
-              : RubyTheme.pureWhite.withOpacity(0.9),
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
+  // Widget _buildCategoryChip() {
+  //   return Container(
+  //     padding: EdgeInsets.symmetric(
+  //       horizontal: RubyTheme.spacingS(context) / 2,
+  //       vertical: RubyTheme.spacingXS(context) / 2,
+  //     ),
+  //     decoration: BoxDecoration(
+  //       color: widget.task.isCompleted
+  //           ? RubyTheme.mediumGray.withOpacity(0.2)
+  //           : RubyTheme.pureWhite.withOpacity(0.2),
+  //       borderRadius: BorderRadius.circular(RubyTheme.radiusSmall(context)),
+  //     ),
+  //     child: Text(
+  //       widget.task.category!,
+  //       style: RubyTheme.caption(context).copyWith(
+  //         color: widget.task.isCompleted
+  //             ? RubyTheme.success(context).withOpacity(0.1)
+  //             : RubyTheme.surface(context),
+  //         fontSize: 10,
+  //         fontWeight: FontWeight.w600,
+  //       ),
+  //     ),
+  //   );
+  // }
 
-  Widget _buildTagChip(String tag) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: RubyTheme.spacingS(context) / 2,
-        vertical: RubyTheme.spacingXS(context) / 2,
-      ),
-      decoration: BoxDecoration(
-        color: widget.task.isCompleted
-            ? RubyTheme.mediumGray.withOpacity(0.2)
-            : RubyTheme.pureWhite.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(RubyTheme.radiusSmall(context)),
-        border: Border.all(
-          color: widget.task.isCompleted
-              ? RubyTheme.mediumGray.withOpacity(0.3)
-              : RubyTheme.pureWhite.withOpacity(0.3),
-          width: 0.5,
-        ),
-      ),
-      child: Text(
-        tag,
-        style: RubyTheme.caption(context).copyWith(
-          color: widget.task.isCompleted
-              ? RubyTheme.darkGray.withOpacity(0.5)
-              : RubyTheme.pureWhite.withOpacity(0.8),
-          fontSize: 9,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
+  // Widget _buildTagChip(String tag) {
+  //   return Container(
+  //     padding: EdgeInsets.symmetric(
+  //       horizontal: RubyTheme.spacingS(context) / 2,
+  //       vertical: RubyTheme.spacingXS(context) / 2,
+  //     ),
+  //     decoration: BoxDecoration(
+  //       color: widget.task.isCompleted
+  //           ? RubyTheme.mediumGray.withOpacity(0.2)
+  //           : RubyTheme.pureWhite.withOpacity(0.15),
+  //       borderRadius: BorderRadius.circular(RubyTheme.radiusSmall(context)),
+  //       border: Border.all(
+  //         color: widget.task.isCompleted
+  //             ? RubyTheme.mediumGray.withOpacity(0.3)
+  //             : RubyTheme.pureWhite.withOpacity(0.3),
+  //         width: 0.5,
+  //       ),
+  //     ),
+  //     child: Text(
+  //       tag,
+  //       style: RubyTheme.caption(context).copyWith(
+  //         color: widget.task.isCompleted
+  //             ? RubyTheme.darkGray.withOpacity(0.5)
+  //             : RubyTheme.pureWhite.withOpacity(0.8),
+  //         fontSize: 9,
+  //         fontWeight: FontWeight.w500,
+  //       ),
+  //     ),
+  //   );
+  // }
 
   String _formatTime(DateTime dateTime) {
     final now = DateTime.now();
@@ -497,7 +469,7 @@ class _TaskBubbleState extends State<TaskBubble>
     final taskDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
 
     if (taskDate == today) {
-      return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+      return DateFormatter.formatTime(dateTime);
     } else {
       return '${dateTime.day}/${dateTime.month}';
     }
@@ -526,6 +498,100 @@ class _TaskBubbleState extends State<TaskBubble>
     return Border.all(color: _getPriorityColor().withOpacity(0.3), width: 1);
   }
 
+  Widget _buildDeadlineBadge() {
+    if (widget.task.deadlineDate == null) return const SizedBox.shrink();
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final deadline = DateTime(
+      widget.task.deadlineDate!.year,
+      widget.task.deadlineDate!.month,
+      widget.task.deadlineDate!.day,
+    );
+
+    final daysRemaining = deadline.difference(today).inDays;
+
+    // Determine urgency color and icon
+    Color badgeColor;
+    IconData icon;
+    String text;
+
+    if (daysRemaining < 0) {
+      // Overdue
+      badgeColor = RubyTheme.priorityHigh;
+      icon = Icons.warning_rounded;
+      text =
+          'متأخر ${daysRemaining.abs()} ${daysRemaining.abs() == 1 ? 'يوم' : 'أيام'}';
+    } else if (daysRemaining == 0) {
+      // Due today
+      badgeColor = RubyTheme.priorityHigh;
+      icon = Icons.alarm_on_rounded;
+      text = 'الديدلابن النهارده';
+    } else if (daysRemaining == 1) {
+      // Due tomorrow
+      badgeColor = Color(0xFFFFA726); // Orange
+      icon = Icons.alarm_rounded;
+      text = 'الديدلابن بكرا';
+    } else if (daysRemaining <= 3) {
+      // 2-3 days
+      badgeColor = Color(0xFFFFA726); // Orange
+      icon = Icons.alarm_rounded;
+      text = '$daysRemaining أيام';
+    } else if (daysRemaining <= 7) {
+      // 4-7 days
+      badgeColor = Color(0xFFFFC107); // Amber
+      icon = Icons.schedule_rounded;
+      text = '$daysRemaining أيام';
+    } else {
+      // More than 7 days
+      badgeColor = RubyTheme.emerald;
+      icon = Icons.schedule_rounded;
+      text = '$daysRemaining يوم';
+    }
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: RubyTheme.spacingS(context) / 1.5,
+        vertical: RubyTheme.spacingXS(context) / 2.5,
+      ),
+      decoration: BoxDecoration(
+        color: widget.task.isCompleted
+            ? RubyTheme.textSecondary(context).withOpacity(0.2)
+            : badgeColor.withOpacity(0.25),
+        borderRadius: BorderRadius.circular(RubyTheme.radiusSmall(context)),
+        border: Border.all(
+          color: widget.task.isCompleted
+              ? RubyTheme.textSecondary(context).withOpacity(0.3)
+              : badgeColor.withOpacity(0.5),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 12,
+            color: widget.task.isCompleted
+                ? RubyTheme.textSecondary(context).withOpacity(0.5)
+                : RubyTheme.pureWhite,
+          ),
+          SizedBox(width: RubyTheme.spacingXS(context) / 2),
+          Text(
+            text,
+            style: RubyTheme.caption(context).copyWith(
+              color: widget.task.isCompleted
+                  ? RubyTheme.textSecondary(context).withOpacity(0.5)
+                  : RubyTheme.pureWhite,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAudioPlayer() {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -545,7 +611,18 @@ class _TaskBubbleState extends State<TaskBubble>
             constraints: BoxConstraints(),
             iconSize: 32,
           ),
-          SizedBox(width: 4),
+          // IconButton(
+          //   icon: Icon(
+          //     Icons.edit_note_rounded,
+          //     color: RubyTheme.pureWhite.withOpacity(0.8),
+          //   ),
+          //   onPressed: widget.onTap,
+          //   padding: EdgeInsets.zero,
+          //   constraints: BoxConstraints(),
+          //   iconSize: 24,
+          //   tooltip: 'تفريغ النص',
+          // ),
+          SizedBox(width: 8),
           // Waves visualization placeholder - using a styled slider for now
           // but formatted to look more like a voice message
           SizedBox(
@@ -564,9 +641,18 @@ class _TaskBubbleState extends State<TaskBubble>
                 max: _duration.inMilliseconds.toDouble() > 0
                     ? _duration.inMilliseconds.toDouble()
                     : 1.0,
-                onChanged: (value) async {
+                onChanged: (value) {
+                  setState(() {
+                    _position = Duration(milliseconds: value.toInt());
+                  });
+                },
+                onChangeEnd: (value) async {
                   final position = Duration(milliseconds: value.toInt());
-                  await _audioPlayer.seek(position);
+                  try {
+                    await _audioPlayer.seek(position);
+                  } catch (e) {
+                    print('Error seeking: $e');
+                  }
                 },
               ),
             ),

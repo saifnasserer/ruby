@@ -66,7 +66,9 @@ class TaskController extends ChangeNotifier {
 
         dayTasks[taskIndex] = task.copyWith(
           isCompleted: !task.isCompleted,
-          completedAt: !task.isCompleted ? DateTime.now() : null,
+          completedAt: !task.isCompleted
+              ? DateTime.now()
+              : const NullableValue(null),
         );
 
         // Add chat message for task completion/uncompletion
@@ -174,6 +176,83 @@ class TaskController extends ChangeNotifier {
   /// Get visible tasks for a specific date (excluding deleted)
   List<Task> getVisibleTasksForDate(String dateKey) {
     return (_tasks[dateKey] ?? []).where((task) => !task.isDeleted).toList();
+  }
+
+  /// Get visible tasks for a specific date INCLUDING tasks with deadlines
+  /// that should appear on this date (deadline tasks from other dates)
+  List<Task> getVisibleTasksWithDeadlines(String dateKey) {
+    // Get regular tasks for this date
+    final regularTasks = getVisibleTasksForDate(dateKey);
+
+    // Parse the date key
+    final dateParts = dateKey.split('-');
+    if (dateParts.length != 3) return regularTasks;
+
+    final currentDate = DateTime(
+      int.parse(dateParts[0]),
+      int.parse(dateParts[1]),
+      int.parse(dateParts[2]),
+    );
+
+    // Find all tasks with deadlines that should appear on this date
+    final deadlineTasks = <Task>[];
+
+    _tasks.forEach((taskDateKey, tasks) {
+      for (final task in tasks) {
+        if (task.isDeleted) continue;
+
+        // Skip if no deadline
+        if (task.deadlineDate == null) continue;
+
+        // Check if this task should appear on the current date
+        // It should appear if: current date >= task creation date AND current date <= deadline
+        final taskCreationDate = DateTime(
+          task.createdAt.year,
+          task.createdAt.month,
+          task.createdAt.day,
+        );
+
+        final deadlineDate = DateTime(
+          task.deadlineDate!.year,
+          task.deadlineDate!.month,
+          task.deadlineDate!.day,
+        );
+
+        // Only show if current date is between creation and deadline
+        // AND this is not the task's original date (to avoid duplicates)
+        if (currentDate.isAfter(
+              taskCreationDate.subtract(const Duration(days: 1)),
+            ) &&
+            currentDate.isBefore(deadlineDate.add(const Duration(days: 1))) &&
+            taskDateKey != dateKey) {
+          deadlineTasks.add(task);
+        }
+      }
+    });
+
+    return [...regularTasks, ...deadlineTasks];
+  }
+
+  /// Get days remaining until deadline for a task on a specific date
+  int getDaysToDeadline(Task task, String dateKey) {
+    if (task.deadlineDate == null) return 0;
+
+    final dateParts = dateKey.split('-');
+    if (dateParts.length != 3) return 0;
+
+    final currentDate = DateTime(
+      int.parse(dateParts[0]),
+      int.parse(dateParts[1]),
+      int.parse(dateParts[2]),
+    );
+
+    final deadlineDate = DateTime(
+      task.deadlineDate!.year,
+      task.deadlineDate!.month,
+      task.deadlineDate!.day,
+    );
+
+    return deadlineDate.difference(currentDate).inDays;
   }
 
   /// Get unfinished tasks count for a specific date
@@ -357,7 +436,7 @@ class TaskController extends ChangeNotifier {
         final task = dayTasks[taskIndex];
 
         dayTasks[taskIndex] = task.copyWith(
-          deadlineDate: deadline,
+          deadlineDate: deadline == null ? const NullableValue(null) : deadline,
           updatedAt: DateTime.now(),
         );
       }

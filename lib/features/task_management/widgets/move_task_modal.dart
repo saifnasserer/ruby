@@ -31,7 +31,7 @@ class _MoveTaskModalState extends State<MoveTaskModal> {
       decoration: BoxDecoration(
         color: RubyTheme.pureWhite,
         borderRadius: BorderRadius.circular(RubyTheme.radiusLarge(context)),
-        boxShadow: RubyTheme.mediumShadow,
+        boxShadow: RubyTheme.mediumShadow(context),
       ),
       child: Directionality(
         textDirection: TextDirection.rtl,

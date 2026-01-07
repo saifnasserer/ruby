@@ -3,19 +3,9 @@ import '../../../../core/theme/ruby_theme.dart';
 
 class TaskOptionsModal extends StatelessWidget {
   final VoidCallback onDelete;
-  final VoidCallback? onEdit;
-  final VoidCallback? onChangePriority;
   final VoidCallback? onMove;
-  final VoidCallback? onManageCategory;
 
-  const TaskOptionsModal({
-    super.key,
-    required this.onDelete,
-    this.onEdit,
-    this.onChangePriority,
-    this.onMove,
-    this.onManageCategory,
-  });
+  const TaskOptionsModal({super.key, required this.onDelete, this.onMove});
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +14,7 @@ class TaskOptionsModal extends StatelessWidget {
       decoration: BoxDecoration(
         color: RubyTheme.pureWhite,
         borderRadius: BorderRadius.circular(RubyTheme.radiusLarge(context)),
-        boxShadow: RubyTheme.mediumShadow,
+        boxShadow: RubyTheme.mediumShadow(context),
       ),
       child: Directionality(
         textDirection: TextDirection.rtl,
@@ -57,29 +47,16 @@ class TaskOptionsModal extends StatelessWidget {
             ),
             SizedBox(height: RubyTheme.spacingL(context)),
 
-            // Edit option
-            if (onEdit != null)
+            // Move option
+            if (onMove != null)
               _buildOption(
                 context,
-                icon: Icons.edit_outlined,
+                icon: Icons.drive_file_move_outlined,
                 iconColor: RubyTheme.sapphire,
-                title: 'تعديل التاسك',
+                title: 'نقل التاسك',
                 onTap: () {
                   Navigator.pop(context);
-                  onEdit!();
-                },
-              ),
-
-            // Change priority option
-            if (onChangePriority != null)
-              _buildOption(
-                context,
-                icon: Icons.star_outline,
-                iconColor: RubyTheme.gold,
-                title: 'تغيير الأولوية',
-                onTap: () {
-                  Navigator.pop(context);
-                  onChangePriority!();
+                  onMove!();
                 },
               ),
 

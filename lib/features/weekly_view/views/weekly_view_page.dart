@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import '../../../../core/theme/ruby_theme.dart';
+import '../../../../core/utils/date_formatter.dart';
 import '../widgets/unified_chat_view.dart';
 import '../../../presentation/widgets/chat_input.dart';
 import '../widgets/slideable_task_input.dart';
@@ -62,60 +63,28 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
   }
 
   // UI action handlers that use Modals helper
-  void _handleShowTaskOptions(String taskId) {
-    // Find task
-    Task? task;
-    for (var entry in taskController.tasks.entries) {
-      final found = entry.value.firstWhere(
-        (t) => t.id == taskId,
-        orElse: () =>
-            Task(id: '', text: '', createdAt: DateTime.now(), dayOfWeek: ''),
-      );
-      if (found.id.isNotEmpty) {
-        task = found;
-        break;
-      }
-    }
-
-    if (task != null) {
-      WeeklyViewModals.showTaskOptions(
-        context,
-        taskId: taskId,
-        task: task,
-        onDelete: () => deleteTask(taskId),
-        onEdit: (t) => _handleShowTaskDetail(t),
-        onChangePriority: (t) => _handleShowPrioritySelector(t),
-        onMove: (t) => _handleShowMoveTask(t),
-      );
-    }
-  }
 
   void _handleShowTaskDetail(Task task) {
+    // Use the task's actual creation date, not the current date
+    final taskDateKey = DateFormatter.getDateKey(task.createdAt);
+
     WeeklyViewModals.showTaskDetailModal(
       context,
       task: task,
-      currentDateKey: weeklyViewController.getCurrentDateKey(),
+      currentDateKey: taskDateKey,
       taskController: taskController,
       onLoadHistory: loadChatHistoryForDay,
     );
   }
 
   void _handleShowPrioritySelector(Task task) {
+    // Use the task's actual creation date, not the current date
+    final taskDateKey = DateFormatter.getDateKey(task.createdAt);
+
     WeeklyViewModals.showPrioritySelector(
       context,
       task: task,
-      currentDateKey: weeklyViewController.getCurrentDateKey(),
-      taskController: taskController,
-      onLoadHistory: loadChatHistoryForDay,
-    );
-  }
-
-  void _handleShowMoveTask(Task task) {
-    WeeklyViewModals.showMoveTaskModal(
-      context,
-      task: task,
-      currentDateKey: weeklyViewController.getCurrentDateKey(),
-      weeklyViewController: weeklyViewController,
+      currentDateKey: taskDateKey,
       taskController: taskController,
       onLoadHistory: loadChatHistoryForDay,
     );
@@ -133,12 +102,18 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
   }
 
   Widget _buildScaffold(BuildContext context) {
-    Color backgroundColor = RubyTheme.softGray;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    Color backgroundColor = RubyTheme.pureWhite;
+
     if (widget.settingsController?.wallpaperType == 'color') {
       backgroundColor = widget.settingsController!.backgroundColor;
+    } else if (isDarkMode) {
+      backgroundColor = RubyTheme.darkBackground;
     }
 
-    final isLightBackground = backgroundColor.computeLuminance() > 0.5;
+    final isLightBackground =
+        !isDarkMode && backgroundColor.computeLuminance() > 0.5;
     final statusBarStyle = SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: isLightBackground
@@ -152,45 +127,74 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: statusBarStyle,
       child: Scaffold(
-        backgroundColor: widget.settingsController?.wallpaperType == 'image'
-            ? Colors.transparent
-            : backgroundColor,
-        body: Container(
-          decoration:
-              widget.settingsController?.wallpaperType == 'image' &&
-                  widget.settingsController?.wallpaperPath != null
-              ? BoxDecoration(
-                  image: DecorationImage(
-                    image: FileImage(
-                      File(widget.settingsController!.wallpaperPath!),
+        backgroundColor: Colors.transparent,
+        body: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Container(
+            decoration: BoxDecoration(color: backgroundColor),
+            child: Stack(
+              children: [
+                // Dark Mode Default Background (Only if user hasn't customized)
+                if (isDarkMode &&
+                    widget.settingsController?.wallpaperType == 'image' &&
+                    widget.settingsController?.wallpaperPath ==
+                        'assets/pattern.jpg')
+                  Positioned.fill(
+                    child: Opacity(
+                      opacity: 0.2, // Default opacity for dark mode bg
+                      child: Image.asset(
+                        'assets/darkmode bg.jpg',
+                        fit: BoxFit.cover,
+                      ),
                     ),
-                    fit: BoxFit.cover,
+                  )
+                // User Selected Wallpaper (Image)
+                else if (widget.settingsController?.wallpaperType == 'image' &&
+                    widget.settingsController?.wallpaperPath != null)
+                  Positioned.fill(
+                    child: Opacity(
+                      opacity: widget.settingsController!.isAssetWallpaper
+                          ? 0.2
+                          : widget.settingsController!.wallpaperOpacity,
+                      child: widget.settingsController!.isAssetWallpaper
+                          ? Image.asset(
+                              widget.settingsController!.wallpaperPath!,
+                              fit: BoxFit.cover,
+                            )
+                          : Image.file(
+                              File(widget.settingsController!.wallpaperPath!),
+                              fit: BoxFit.cover,
+                            ),
+                    ),
                   ),
-                )
-              : null,
-          child: SafeArea(
-            child: Directionality(
-              textDirection: TextDirection.rtl,
-              child: Column(
-                children: [
-                  Expanded(child: _buildUnifiedChatView()),
-                  if (widget.settingsController != null)
-                    SlideableTaskInput(
-                      dayOfWeek: 'اليوم',
-                      onTaskAdded: addTaskToCurrentDay,
-                      onTaskRestored: (taskId, dateKey) => restoreTask(taskId),
-                      onVoiceTaskAdded: addVoiceTaskToCurrentDay,
-                      settingsController: widget.settingsController!,
-                    )
-                  else
-                    ChatInput(
-                      dayOfWeek: 'اليوم',
-                      onTaskAdded: addTaskToCurrentDay,
-                      onTaskRestored: (taskId, dateKey) => restoreTask(taskId),
-                      onVoiceTaskAdded: addVoiceTaskToCurrentDay,
+                SafeArea(
+                  child: Directionality(
+                    textDirection: TextDirection.rtl,
+                    child: Column(
+                      children: [
+                        Expanded(child: _buildUnifiedChatView()),
+                        if (widget.settingsController != null)
+                          SlideableTaskInput(
+                            dayOfWeek: 'اليوم',
+                            onTaskAdded: addTaskToCurrentDay,
+                            onTaskRestored: (taskId, dateKey) =>
+                                restoreTask(taskId),
+                            onVoiceTaskAdded: addVoiceTaskToCurrentDay,
+                            settingsController: widget.settingsController!,
+                          )
+                        else
+                          ChatInput(
+                            dayOfWeek: 'اليوم',
+                            onTaskAdded: addTaskToCurrentDay,
+                            onTaskRestored: (taskId, dateKey) =>
+                                restoreTask(taskId),
+                            onVoiceTaskAdded: addVoiceTaskToCurrentDay,
+                          ),
+                      ],
                     ),
-                ],
-              ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -207,7 +211,6 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
     return UnifiedChatView(
       tasks: allTasks,
       onTaskTap: (task, dateKey) => _showTaskDetailScreen(task, dateKey),
-      onTaskLongPress: (taskId) => _handleShowTaskOptions(taskId),
     );
   }
 

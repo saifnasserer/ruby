@@ -30,8 +30,7 @@ mixin ModalHandlersMixin on State {
       backgroundColor: Colors.transparent,
       builder: (context) => TaskOptionsModal(
         onDelete: () => deleteTask(taskId),
-        onEdit: () => showTaskDetailModal(task),
-        onChangePriority: () => showPrioritySelector(task),
+        onMove: () => showMoveTaskModal(task),
       ),
     );
   }

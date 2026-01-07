@@ -270,35 +270,6 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
     _saveTasks();
   }
 
-  void _deleteTask(String dateKey, String taskId) {
-    setState(() {
-      final dayTasks = _tasks[dateKey];
-      if (dayTasks != null) {
-        final taskIndex = dayTasks.indexWhere((task) => task.id == taskId);
-        if (taskIndex != -1) {
-          final task = dayTasks[taskIndex];
-
-          // Add chat message for task deletion before removing
-          ChatHistoryService.addMessage(
-            ChatHistoryService.createTaskDeletedMessage(
-              taskId: taskId,
-              taskText: task.text,
-              dayKey: dateKey,
-            ),
-          ).then((_) => _loadChatHistoryForDay(dateKey));
-
-          // Mark task as deleted instead of removing completely
-          dayTasks[taskIndex] = task.copyWith(
-            isDeleted: true,
-            deletedAt: DateTime.now(),
-          );
-        }
-      }
-    });
-    // Save tasks after deleting
-    _saveTasks();
-  }
-
   void _addTaskToCurrentDay(String taskText) {
     final currentDate = _currentWeekDates[_selectedIndex];
     final dateKey = _getDateKey(currentDate);
@@ -706,7 +677,7 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: RubyTheme.softGray,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Directionality(
           textDirection: TextDirection.rtl,
@@ -767,7 +738,9 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                             gradient: isSelected
                                 ? RubyTheme.rubyGradient
                                 : null,
-                            color: isSelected ? null : RubyTheme.pureWhite,
+                            color: isSelected
+                                ? null
+                                : RubyTheme.surface(context),
                             borderRadius: BorderRadius.circular(
                               RubyTheme.radiusLarge(context),
                             ),
@@ -778,7 +751,7 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                                   )
                                 : null,
                             boxShadow: isSelected
-                                ? RubyTheme.softShadow
+                                ? RubyTheme.softShadow(context)
                                 : [
                                     BoxShadow(
                                       color: Colors.black.withOpacity(0.05),
@@ -826,7 +799,7 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                                   style: RubyTheme.bodyLarge(context).copyWith(
                                     color: isSelected
                                         ? RubyTheme.pureWhite
-                                        : RubyTheme.charcoal,
+                                        : RubyTheme.textPrimary(context),
                                     fontWeight: isSelected
                                         ? FontWeight.w600
                                         : FontWeight.w500,
@@ -1017,7 +990,7 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                 displayText,
                 style: RubyTheme.heading2(
                   context,
-                ).copyWith(color: RubyTheme.charcoal),
+                ).copyWith(color: RubyTheme.textPrimary(context)),
               ),
               SizedBox(height: RubyTheme.spacingS(context)),
               Text(
@@ -1066,7 +1039,6 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
             task: task,
             isToday: isToday,
             onTap: () => _toggleTaskCompletion(dateKey, task.id),
-            onLongPress: () => _showTaskOptions(dateKey, task.id),
           );
         }
 
@@ -1083,7 +1055,7 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
       builder: (context) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
-          backgroundColor: RubyTheme.pureWhite,
+          backgroundColor: RubyTheme.surface(context),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(RubyTheme.radiusLarge(context)),
           ),
@@ -1091,7 +1063,7 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
             'استعادة التاسك',
             style: RubyTheme.heading2(
               context,
-            ).copyWith(color: RubyTheme.charcoal),
+            ).copyWith(color: RubyTheme.textPrimary(context)),
           ),
           content: Text(
             'هل تريد استعادة التاسك "${message.taskText}"؟',
@@ -1121,84 +1093,6 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _showTaskOptions(String dateKey, String taskId) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: EdgeInsets.all(RubyTheme.spacingM(context)),
-        decoration: BoxDecoration(
-          color: RubyTheme.pureWhite,
-          borderRadius: BorderRadius.circular(RubyTheme.radiusLarge(context)),
-          boxShadow: RubyTheme.mediumShadow,
-        ),
-        child: Directionality(
-          textDirection: TextDirection.rtl,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                width: 40,
-                height: 4,
-                margin: EdgeInsets.only(top: RubyTheme.spacingM(context)),
-                decoration: BoxDecoration(
-                  color: RubyTheme.mediumGray.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              SizedBox(height: RubyTheme.spacingL(context)),
-
-              // Header
-              Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: RubyTheme.spacingL(context),
-                ),
-                child: Text(
-                  'خيارات التاسك',
-                  style: RubyTheme.heading2(
-                    context,
-                  ).copyWith(color: RubyTheme.charcoal),
-                ),
-              ),
-              SizedBox(height: RubyTheme.spacingL(context)),
-
-              // Delete option
-              ListTile(
-                leading: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(
-                      RubyTheme.radiusMedium(context),
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.delete_outline,
-                    color: Colors.red,
-                    size: 20,
-                  ),
-                ),
-                title: Text(
-                  'حذف التاسك',
-                  style: RubyTheme.bodyLarge(
-                    context,
-                  ).copyWith(color: Colors.red, fontWeight: FontWeight.w500),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _deleteTask(dateKey, taskId);
-                },
-              ),
-              SizedBox(height: RubyTheme.spacingL(context)),
-            ],
-          ),
         ),
       ),
     );

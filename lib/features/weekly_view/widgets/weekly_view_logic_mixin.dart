@@ -172,7 +172,7 @@ mixin WeeklyViewLogicMixin<T extends StatefulWidget> on State<T> {
     }
   }
 
-  void addVoiceTaskToCurrentDay(String audioPath) {
+  void addVoiceTaskToCurrentDay(String audioPath, [String? transcription]) {
     if (audioPath.isEmpty) return;
 
     final now = DateTime.now();
@@ -181,7 +181,7 @@ mixin WeeklyViewLogicMixin<T extends StatefulWidget> on State<T> {
 
     final task = Task(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      text: 'تسجيل صوتي',
+      text: transcription ?? 'تسجيل صوتي',
       createdAt: DateTime.now(),
       dayOfWeek: weeklyViewController.getDateDisplayText(today, false),
       audioPath: audioPath,

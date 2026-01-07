@@ -11,79 +11,161 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Set status bar based on current background
-    final isLightBg =
-        settingsController.backgroundColor.computeLuminance() > 0.5;
-    SystemChrome.setSystemUIOverlayStyle(
-      SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: isLightBg ? Brightness.dark : Brightness.light,
-        statusBarBrightness: isLightBg ? Brightness.light : Brightness.dark,
-      ),
-    );
+    return AnimatedBuilder(
+      animation: settingsController,
+      builder: (context, _) {
+        final isDark = settingsController.isDarkMode;
 
-    return Scaffold(
-      backgroundColor: RubyTheme.softGray,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        title: Text('الإعدادات', style: RubyTheme.heading2(context)),
-        leading: AnimatedBuilder(
-          animation: settingsController,
-          builder: (context, _) {
-            final isLightBg =
-                settingsController.backgroundColor.computeLuminance() > 0.5;
-            // Force dark icon if background is transparent (image) or very light
-            final useDarkIcon =
-                isLightBg ||
-                settingsController.backgroundColor == Colors.transparent;
-
-            return IconButton(
+        return Scaffold(
+          backgroundColor: RubyTheme.background(context),
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            centerTitle: true,
+            title: Text('الإعدادات', style: RubyTheme.heading2(context)),
+            leading: IconButton(
               icon: Icon(
                 Icons.arrow_back_ios_rounded,
-                color: useDarkIcon ? RubyTheme.charcoal : RubyTheme.pureWhite,
+                color: RubyTheme.textPrimary(context),
               ),
               onPressed: () => Navigator.pop(context),
-            );
-          },
-        ),
-      ),
-      body: Directionality(
-        textDirection: TextDirection.rtl,
-        child: ListView(
-          padding: EdgeInsets.all(RubyTheme.spacingL(context)),
-          children: [
-            // Wallpaper Section
-            _buildSectionHeader(context, 'خلفية الشاشة'),
-            SizedBox(height: RubyTheme.spacingM(context)),
-            _buildWallpaperSelector(context),
+            ),
+          ),
+          body: Directionality(
+            textDirection: TextDirection.rtl,
+            child: ListView(
+              padding: EdgeInsets.all(RubyTheme.spacingL(context)),
+              children: [
+                // Dark Mode Section
+                _buildSectionHeader(context, 'المظهر'),
+                SizedBox(height: RubyTheme.spacingM(context)),
+                _buildSettingCard(
+                  context,
+                  child: SwitchListTile(
+                    value: isDark,
+                    onChanged: (value) =>
+                        settingsController.toggleDarkMode(value),
+                    title: Row(
+                      children: [
+                        Icon(
+                          isDark
+                              ? Icons.dark_mode_rounded
+                              : Icons.light_mode_rounded,
+                          color: isDark
+                              ? RubyTheme.darkGold
+                              : RubyTheme.rubyRed,
+                        ),
+                        SizedBox(width: RubyTheme.spacingM(context)),
+                        Text(
+                          'الوضع الليلي',
+                          style: RubyTheme.bodyMedium(context).copyWith(
+                            color: RubyTheme.textPrimary(context),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    activeColor: RubyTheme.primary(context),
+                    activeTrackColor: RubyTheme.primary(
+                      context,
+                    ).withOpacity(0.3),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                  ),
+                ),
 
-            SizedBox(height: RubyTheme.spacingXL(context)),
+                SizedBox(height: RubyTheme.spacingXL(context)),
 
-            // Notifications Section
-            _buildSectionHeader(context, 'الإشعارات'),
-            SizedBox(height: RubyTheme.spacingM(context)),
-            _buildNotificationSwitch(context),
+                // Notifications Section
+                _buildSectionHeader(context, 'الإشعارات'),
+                SizedBox(height: RubyTheme.spacingM(context)),
+                _buildSettingCard(
+                  context,
+                  child: SwitchListTile(
+                    value: settingsController.enableNotifications,
+                    onChanged: (value) =>
+                        settingsController.toggleNotifications(value),
+                    title: Row(
+                      children: [
+                        Icon(
+                          Icons.notifications_active_rounded,
+                          color: RubyTheme.textSecondary(context),
+                        ),
+                        SizedBox(width: RubyTheme.spacingM(context)),
+                        Text(
+                          'تفعيل الإشعارات',
+                          style: RubyTheme.bodyMedium(context).copyWith(
+                            color: RubyTheme.textPrimary(context),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    activeColor: RubyTheme.primary(context),
+                    activeTrackColor: RubyTheme.primary(
+                      context,
+                    ).withOpacity(0.3),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                  ),
+                ),
 
-            SizedBox(height: RubyTheme.spacingXL(context)),
+                SizedBox(height: RubyTheme.spacingXL(context)),
 
-            // About Section
-            _buildSectionHeader(context, 'عن التطبيق'),
-            SizedBox(height: RubyTheme.spacingM(context)),
-            _buildAboutCard(context),
-          ],
+                // Wallpaper Section
+                _buildSectionHeader(context, 'خلفية الشاشة'),
+                SizedBox(height: RubyTheme.spacingM(context)),
+                _buildWallpaperSelector(context),
+                SizedBox(height: RubyTheme.spacingM(context)),
+                _buildOpacitySlider(context),
+
+                SizedBox(height: RubyTheme.spacingXL(context)),
+
+                // About Section
+                _buildSectionHeader(context, 'عن التطبيق'),
+                SizedBox(height: RubyTheme.spacingM(context)),
+                _buildAboutCard(context),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSectionHeader(BuildContext context, String title) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: RubyTheme.spacingS(context)),
+      child: Text(
+        title,
+        style: RubyTheme.bodyLarge(context).copyWith(
+          color: RubyTheme.primary(context),
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
         ),
       ),
     );
   }
 
-  Widget _buildSectionHeader(BuildContext context, String title) {
-    return Text(
-      title,
-      style: RubyTheme.bodyLarge(
-        context,
-      ).copyWith(color: RubyTheme.rubyRed, fontWeight: FontWeight.bold),
+  Widget _buildSettingCard(BuildContext context, {required Widget child}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: RubyTheme.surface(context),
+        borderRadius: BorderRadius.circular(RubyTheme.radiusMedium(context)),
+        boxShadow: RubyTheme.softShadow(context),
+        border: Border.all(
+          color: RubyTheme.textSecondary(context).withOpacity(0.05),
+          width: 1,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(RubyTheme.radiusMedium(context)),
+        child: child,
+      ),
     );
   }
 
@@ -97,164 +179,240 @@ class SettingsScreen extends StatelessWidget {
       {'name': 'بنفسجي', 'color': 0xFF1A0D2A},
     ];
 
-    return SizedBox(
-      height: 80,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: colors.length + 1, // +1 for the add image button
-        separatorBuilder: (_, __) =>
-            SizedBox(width: RubyTheme.spacingM(context)),
-        itemBuilder: (context, index) {
-          // Last item is the + button for image picker
-          if (index == colors.length) {
-            return AnimatedBuilder(
-              animation: settingsController,
-              builder: (context, _) {
-                final isImageSelected =
-                    settingsController.wallpaperType == 'image';
-                return GestureDetector(
-                  onTap: () async {
-                    final ImagePicker picker = ImagePicker();
-                    final XFile? image = await picker.pickImage(
-                      source: ImageSource.gallery,
-                    );
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: RubyTheme.surface(context),
+        borderRadius: BorderRadius.circular(RubyTheme.radiusMedium(context)),
+        boxShadow: RubyTheme.softShadow(context),
+        border: Border.all(
+          color: RubyTheme.textSecondary(context).withOpacity(0.05),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 70,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: colors.length + 2,
+              separatorBuilder: (_, __) => SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                // Default pattern asset
+                if (index == 0) {
+                  final isSelected =
+                      settingsController.wallpaperType == 'image' &&
+                      settingsController.isAssetWallpaper;
+                  return GestureDetector(
+                    onTap: () => settingsController.setWallpaperImage(
+                      'assets/pattern.jpg',
+                      isAsset: true,
+                    ),
+                    child: Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        image: DecorationImage(
+                          image: AssetImage('assets/pattern.jpg'),
+                          fit: BoxFit.cover,
+                        ),
+                        border: Border.all(
+                          color: isSelected
+                              ? RubyTheme.primary(context)
+                              : Colors.transparent,
+                          width: 3,
+                        ),
+                        boxShadow: isSelected
+                            ? RubyTheme.softShadow(context)
+                            : null,
+                      ),
+                      child: isSelected
+                          ? Icon(
+                              Icons.check,
+                              color: RubyTheme.pureWhite,
+                              size: 20,
+                            )
+                          : null,
+                    ),
+                  );
+                }
 
-                    if (image != null) {
-                      await settingsController.setWallpaperImage(image.path);
-                    }
-                  },
-                  child: Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: RubyTheme.softGray,
-                      shape: BoxShape.circle,
-                      border: Border.all(
+                // Image picker button
+                if (index == colors.length + 1) {
+                  final isImageSelected =
+                      settingsController.wallpaperType == 'image';
+                  return GestureDetector(
+                    onTap: () async {
+                      final ImagePicker picker = ImagePicker();
+                      final XFile? image = await picker.pickImage(
+                        source: ImageSource.gallery,
+                      );
+
+                      if (image != null) {
+                        await settingsController.setWallpaperImage(image.path);
+                      }
+                    },
+                    child: Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: RubyTheme.surfaceVariant(context),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isImageSelected
+                              ? RubyTheme.primary(context)
+                              : RubyTheme.textTertiary(
+                                  context,
+                                ).withOpacity(0.3),
+                          width: isImageSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.add_photo_alternate_rounded,
                         color: isImageSelected
-                            ? RubyTheme.rubyRed
-                            : RubyTheme.mediumGray.withOpacity(0.5),
-                        width: isImageSelected ? 3 : 1,
+                            ? RubyTheme.primary(context)
+                            : RubyTheme.textSecondary(context),
+                        size: 24,
                       ),
                     ),
-                    child: Icon(
-                      Icons.add,
-                      color: isImageSelected
-                          ? RubyTheme.rubyRed
-                          : RubyTheme.mediumGray,
-                      size: 30,
+                  );
+                }
+
+                final colorData = colors[index - 1];
+                final colorValue = colorData['color'] as int;
+                final color = Color(colorValue);
+
+                final isSelected =
+                    settingsController.wallpaperType == 'color' &&
+                    settingsController.backgroundColor.value == colorValue;
+
+                return GestureDetector(
+                  onTap: () => settingsController.setBackgroundColor(color),
+                  child: Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected
+                            ? RubyTheme.textPrimary(context)
+                            : Colors.transparent,
+                        width: isSelected ? 3 : 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                        ),
+                      ],
                     ),
+                    child: isSelected
+                        ? Icon(
+                            Icons.check,
+                            color: color.computeLuminance() > 0.5
+                                ? Colors.black
+                                : Colors.white,
+                            size: 20,
+                          )
+                        : null,
                   ),
                 );
               },
-            );
-          }
-
-          final colorData = colors[index];
-          final colorValue = colorData['color'] as int;
-          final color = Color(colorValue);
-
-          return AnimatedBuilder(
-            animation: settingsController,
-            builder: (context, _) {
-              final isSelected =
-                  settingsController.wallpaperType == 'color' &&
-                  settingsController.backgroundColor.value == colorValue;
-
-              return GestureDetector(
-                onTap: () => settingsController.setBackgroundColor(color),
-                child: Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelected
-                          ? RubyTheme.pureWhite
-                          : RubyTheme.darkGray,
-                      width: isSelected ? 3 : 1,
-                    ),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: color.withOpacity(0.5),
-                              blurRadius: 10,
-                              spreadRadius: 2,
-                            ),
-                          ]
-                        : [],
-                  ),
-                  child: isSelected
-                      ? Icon(
-                          Icons.check,
-                          color: color.computeLuminance() > 0.5
-                              ? RubyTheme.charcoal
-                              : RubyTheme.pureWhite,
-                        )
-                      : null,
-                ),
-              );
-            },
-          );
-        },
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildNotificationSwitch(BuildContext context) {
-    return AnimatedBuilder(
-      animation: settingsController,
-      builder: (context, _) {
-        return Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: RubyTheme.spacingM(context),
-            vertical: RubyTheme.spacingS(context),
-          ),
-          decoration: BoxDecoration(
-            color: RubyTheme.pureWhite,
-            borderRadius: BorderRadius.circular(
-              RubyTheme.radiusMedium(context),
+  Widget _buildOpacitySlider(BuildContext context) {
+    if (settingsController.wallpaperType != 'image' ||
+        settingsController.isAssetWallpaper) {
+      return const SizedBox.shrink();
+    }
+
+    return _buildSettingCard(
+      context,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'شفافية الخلفية',
+                  style: RubyTheme.bodyMedium(context).copyWith(
+                    color: RubyTheme.textPrimary(context),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  '${(settingsController.wallpaperOpacity * 100).toInt()}%',
+                  style: RubyTheme.caption(context),
+                ),
+              ],
             ),
-          ),
-          child: SwitchListTile(
-            value: settingsController.enableNotifications,
-            onChanged: (value) => settingsController.toggleNotifications(value),
-            title: Text(
-              'تفعيل الإشعارات',
-              style: RubyTheme.bodyMedium(
-                context,
-              ).copyWith(color: RubyTheme.charcoal),
+            Row(
+              children: [
+                Icon(
+                  Icons.opacity,
+                  size: 20,
+                  color: RubyTheme.textTertiary(context),
+                ),
+                Expanded(
+                  child: Slider(
+                    value: settingsController.wallpaperOpacity,
+                    onChanged: (value) =>
+                        settingsController.setWallpaperOpacity(value),
+                    activeColor: RubyTheme.primary(context),
+                    inactiveColor: RubyTheme.surfaceVariant(context),
+                  ),
+                ),
+                Icon(
+                  Icons.blur_on,
+                  size: 24,
+                  color: RubyTheme.textTertiary(context),
+                ),
+              ],
             ),
-            activeColor: RubyTheme.rubyRed,
-            contentPadding: EdgeInsets.zero,
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildAboutCard(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(RubyTheme.spacingM(context)),
-      decoration: BoxDecoration(
-        color: RubyTheme.pureWhite,
-        borderRadius: BorderRadius.circular(RubyTheme.radiusMedium(context)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(Icons.info_outline, color: RubyTheme.mediumGray),
-              SizedBox(width: RubyTheme.spacingS(context)),
-              Text(
-                'الإصدار 1.0.0',
-                style: RubyTheme.bodyMedium(
-                  context,
-                ).copyWith(color: RubyTheme.mediumGray),
-              ),
-            ],
-          ),
-        ],
+    return _buildSettingCard(
+      context,
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(
+              Icons.info_outline_rounded,
+              color: RubyTheme.textSecondary(context),
+            ),
+            SizedBox(width: RubyTheme.spacingM(context)),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'روبي للمهام',
+                  style: RubyTheme.bodyMedium(context).copyWith(
+                    color: RubyTheme.textPrimary(context),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text('الإصدار 1.0.0', style: RubyTheme.caption(context)),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

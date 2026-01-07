@@ -48,4 +48,12 @@ class DateFormatter {
       return '$dayName ${date.day} $monthName';
     }
   }
+
+  static String formatTime(DateTime time) {
+    final hour = time.hour > 12
+        ? time.hour - 12
+        : (time.hour == 0 ? 12 : time.hour);
+    final period = time.hour >= 12 ? 'م' : 'ص';
+    return '$hour:${time.minute.toString().padLeft(2, '0')} $period';
+  }
 }

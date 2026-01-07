@@ -14,20 +14,13 @@ class WeeklyViewModals {
     required String taskId,
     required Task task,
     required VoidCallback onDelete,
-    required Function(Task) onEdit,
-    required Function(Task) onChangePriority,
     required Function(Task) onMove,
   }) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => TaskOptionsModal(
-        onDelete: onDelete,
-        onEdit: () => onEdit(task),
-        onChangePriority: () => onChangePriority(task),
-        onManageCategory: () => onEdit(task),
-        onMove: () => onMove(task),
-      ),
+      builder: (context) =>
+          TaskOptionsModal(onDelete: onDelete, onMove: () => onMove(task)),
     );
   }
 

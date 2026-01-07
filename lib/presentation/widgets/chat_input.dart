@@ -7,7 +7,7 @@ class ChatInput extends StatefulWidget {
   final String dayOfWeek;
   final Function(String) onTaskAdded;
   final Function(String, String)? onTaskRestored;
-  final Function(String)? onVoiceTaskAdded;
+  final Function(String, String?)? onVoiceTaskAdded;
   final SettingsController? settingsController;
 
   const ChatInput({
@@ -61,13 +61,13 @@ class _ChatInputState extends State<ChatInput> {
   Future<void> _handleVoiceRecord() async {
     if (_isRecording) {
       // Stop recording
-      final path = await _audioRecorderService.stopRecording();
+      final result = await _audioRecorderService.stopRecording();
       setState(() {
         _isRecording = false;
       });
 
-      if (path != null && widget.onVoiceTaskAdded != null) {
-        widget.onVoiceTaskAdded!(path);
+      if (result['path'] != null && widget.onVoiceTaskAdded != null) {
+        widget.onVoiceTaskAdded!(result['path']!, result['transcription']);
       }
     } else {
       // Start recording
@@ -94,16 +94,10 @@ class _ChatInputState extends State<ChatInput> {
   @override
   Widget build(BuildContext context) {
     // Get theme color from settings or use default
-    final themeColor =
-        widget.settingsController?.backgroundColor ?? RubyTheme.pureWhite;
-    final isLightColor = themeColor.computeLuminance() > 0.5;
-    final accentColor = isLightColor ? RubyTheme.rubyRed : RubyTheme.rubyPink;
+    // final isLightColor = themeColor.computeLuminance() > 0.5;
+    final accentColor = RubyTheme.priorityLow;
 
     return Container(
-      decoration: BoxDecoration(
-        color: themeColor,
-        boxShadow: RubyTheme.softShadow,
-      ),
       child: Container(
         padding: EdgeInsets.symmetric(
           horizontal: RubyTheme.spacingM(context),
@@ -122,10 +116,12 @@ class _ChatInputState extends State<ChatInput> {
                   decoration: BoxDecoration(
                     color: _isTyping
                         ? accentColor
-                        : (_isRecording ? Colors.red : RubyTheme.softGray),
+                        : (_isRecording
+                              ? RubyTheme.priorityHigh
+                              : RubyTheme.surfaceVariant(context)),
                     shape: BoxShape.circle,
                     boxShadow: (_isTyping || _isRecording)
-                        ? RubyTheme.softShadow
+                        ? RubyTheme.softShadow(context)
                         : null,
                   ),
                   child: Transform(
@@ -139,7 +135,7 @@ class _ChatInputState extends State<ChatInput> {
                                 : Icons.mic_rounded),
                       color: _isTyping || _isRecording
                           ? RubyTheme.pureWhite
-                          : RubyTheme.mediumGray,
+                          : RubyTheme.textSecondary(context),
                       size: 20,
                     ),
                   ),
@@ -152,17 +148,17 @@ class _ChatInputState extends State<ChatInput> {
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: RubyTheme.pureWhite,
+                    color: RubyTheme.surface(context),
                     borderRadius: BorderRadius.circular(
                       RubyTheme.radiusLarge(context),
                     ),
                     border: Border.all(
                       color: _isRecording
-                          ? Colors.red
+                          ? RubyTheme.priorityHigh
                           : accentColor.withOpacity(0.3),
                       width: 1.5,
                     ),
-                    boxShadow: RubyTheme.softShadow,
+                    boxShadow: RubyTheme.softShadow(context),
                   ),
                   child: TextField(
                     controller: _controller,
@@ -177,18 +173,27 @@ class _ChatInputState extends State<ChatInput> {
                           : 'اكتب التاسك ...',
                       hintStyle: RubyTheme.bodyMedium(context).copyWith(
                         color: _isRecording
-                            ? Colors.red
-                            : RubyTheme.mediumGray.withOpacity(0.6),
+                            ? RubyTheme.priorityHigh
+                            : RubyTheme.textSecondary(context).withOpacity(0.6),
                       ),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.symmetric(
                         horizontal: RubyTheme.spacingM(context),
                         vertical: RubyTheme.spacingM(context) / 2,
                       ),
+                      suffixIcon: _isTyping
+                          ? null
+                          : Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              size: 16,
+                              color: RubyTheme.textSecondary(
+                                context,
+                              ).withOpacity(0.5),
+                            ),
                     ),
                     style: RubyTheme.bodyLarge(
                       context,
-                    ).copyWith(color: RubyTheme.charcoal),
+                    ).copyWith(color: RubyTheme.textPrimary(context)),
                     onSubmitted: (value) {
                       if (value.trim().isNotEmpty) {
                         _sendTask();

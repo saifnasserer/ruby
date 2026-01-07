@@ -150,7 +150,6 @@ mixin ChatViewMixin on State {
                   task: item,
                   isToday: isToday,
                   onTap: () => toggleTaskCompletion(item.id),
-                  onLongPress: () => showTaskOptions(item.id),
                 );
               }
               return const SizedBox.shrink();

@@ -25,6 +25,77 @@ class RubyTheme {
   static const Color priorityMedium = Color(0xFFFFA726); // Amber
   static const Color priorityLow = Color(0xFF42A5F5); // Calm blue
 
+  // Dark mode colors
+  static const Color darkBackground = Color(0xFF121212); // Deep charcoal
+  static const Color darkSurface = Color(0xFF1E1E1E); // Dark gray surface
+  static const Color darkSurfaceVariant = Color(0xFF2C2C2C); // Lighter surface
+
+  // Dark mode text
+  static const Color darkTextPrimary = Color(0xFFFFFFFF); // Pure white
+  static const Color darkTextSecondary = Color(0xFFB0B0B0); // Medium gray
+  static const Color darkTextTertiary = Color(0xFF808080); // Darker gray
+
+  // Dark mode accents (softer versions)
+  static const Color darkRubyRed = Color(0xFFFF6B9D); // Softer ruby
+  static const Color darkEmerald = Color(0xFF4CAF50); // Softer emerald
+  static const Color darkSapphire = Color(0xFF42A5F5); // Softer sapphire
+  static const Color darkGold = Color(0xFFFFD54F); // Softer gold
+
+  // Theme-aware color getters
+  static Color background(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkBackground
+        : pureWhite;
+  }
+
+  static Color surface(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkSurface
+        : softGray;
+  }
+
+  static Color surfaceVariant(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkSurfaceVariant
+        : pureWhite;
+  }
+
+  static Color textPrimary(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkTextPrimary
+        : charcoal;
+  }
+
+  static Color textSecondary(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkTextSecondary
+        : darkGray;
+  }
+
+  static Color textTertiary(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkTextTertiary
+        : mediumGray;
+  }
+
+  static Color primary(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkRubyRed
+        : rubyRed;
+  }
+
+  static Color accent(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkSapphire
+        : sapphire;
+  }
+
+  static Color success(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkEmerald
+        : emerald;
+  }
+
   // Gradients
   static const LinearGradient rubyGradient = LinearGradient(
     begin: Alignment.topLeft,
@@ -32,10 +103,22 @@ class RubyTheme {
     colors: [rubyRed, rubyDark],
   );
 
+  static const LinearGradient darkRubyGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [darkRubyRed, Color(0xFFD81B60)],
+  );
+
   static const LinearGradient softGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: [pureWhite, softGray],
+  );
+
+  static const LinearGradient darkSoftGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [darkSurface, darkBackground],
   );
 
   static const LinearGradient priorityHighGradient = LinearGradient(
@@ -56,11 +139,11 @@ class RubyTheme {
     colors: [priorityLow, Color(0xFF1976D2)],
   );
 
-  // Text styles - now responsive
+  // Text styles - now theme-aware
   static TextStyle heading1(BuildContext context) => TextStyle(
     fontSize: Responsive.text(context, size: TextSize.heading) * 1.2,
     fontWeight: FontWeight.w700,
-    color: charcoal,
+    color: textPrimary(context),
     fontFamily: 'NotoSansArabic',
     height: 1.2,
   );
@@ -68,7 +151,7 @@ class RubyTheme {
   static TextStyle heading2(BuildContext context) => TextStyle(
     fontSize: Responsive.text(context, size: TextSize.heading),
     fontWeight: FontWeight.w600,
-    color: charcoal,
+    color: textPrimary(context),
     fontFamily: 'NotoSansArabic',
     height: 1.3,
   );
@@ -76,7 +159,7 @@ class RubyTheme {
   static TextStyle bodyLarge(BuildContext context) => TextStyle(
     fontSize: Responsive.text(context, size: TextSize.medium) * 0.9,
     fontWeight: FontWeight.w400,
-    color: darkGray,
+    color: textSecondary(context),
     fontFamily: 'NotoSansArabic',
     height: 1.5,
   );
@@ -84,7 +167,7 @@ class RubyTheme {
   static TextStyle bodyMedium(BuildContext context) => TextStyle(
     fontSize: Responsive.text(context, size: TextSize.small),
     fontWeight: FontWeight.w400,
-    color: mediumGray,
+    color: textTertiary(context),
     fontFamily: 'NotoSansArabic',
     height: 1.4,
   );
@@ -92,35 +175,44 @@ class RubyTheme {
   static TextStyle caption(BuildContext context) => TextStyle(
     fontSize: Responsive.text(context, size: TextSize.small) * 0.85,
     fontWeight: FontWeight.w400,
-    color: mediumGray,
+    color: textTertiary(context),
     fontFamily: 'NotoSansArabic',
     height: 1.3,
   );
 
-  // Shadows
-  static List<BoxShadow> get softShadow => [
-    BoxShadow(
-      color: Colors.black.withOpacity(0.08),
-      blurRadius: 12,
-      offset: const Offset(0, 4),
-    ),
-  ];
+  // Shadows - theme-aware
+  static List<BoxShadow> softShadow(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return [
+      BoxShadow(
+        color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
+        blurRadius: 12,
+        offset: const Offset(0, 4),
+      ),
+    ];
+  }
 
-  static List<BoxShadow> get mediumShadow => [
-    BoxShadow(
-      color: Colors.black.withOpacity(0.12),
-      blurRadius: 20,
-      offset: const Offset(0, 8),
-    ),
-  ];
+  static List<BoxShadow> mediumShadow(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return [
+      BoxShadow(
+        color: Colors.black.withOpacity(isDark ? 0.4 : 0.12),
+        blurRadius: 20,
+        offset: const Offset(0, 8),
+      ),
+    ];
+  }
 
-  static List<BoxShadow> get strongShadow => [
-    BoxShadow(
-      color: Colors.black.withOpacity(0.16),
-      blurRadius: 32,
-      offset: const Offset(0, 16),
-    ),
-  ];
+  static List<BoxShadow> strongShadow(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return [
+      BoxShadow(
+        color: Colors.black.withOpacity(isDark ? 0.5 : 0.16),
+        blurRadius: 32,
+        offset: const Offset(0, 16),
+      ),
+    ];
+  }
 
   // Border radius - now responsive
   static double radiusSmall(BuildContext context) =>

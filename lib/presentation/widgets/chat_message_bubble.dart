@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/models/chat_message.dart';
 import '../../core/theme/ruby_theme.dart';
+import '../../core/utils/date_formatter.dart';
 
 class ChatMessageBubble extends StatefulWidget {
   final ChatMessage message;
@@ -93,7 +94,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble>
                           borderRadius: BorderRadius.circular(
                             RubyTheme.radiusLarge(context),
                           ),
-                          boxShadow: RubyTheme.softShadow,
+                          boxShadow: RubyTheme.softShadow(context),
                           border: _getMessageBorder(),
                         ),
                         child: Row(
@@ -145,7 +146,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble>
                           _formatTime(widget.message.timestamp),
                           style: RubyTheme.caption(
                             context,
-                          ).copyWith(color: RubyTheme.mediumGray),
+                          ).copyWith(color: RubyTheme.textSecondary(context)),
                         ),
                       ),
                   ],
@@ -161,7 +162,9 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble>
   Gradient? _getMessageGradient() {
     switch (widget.message.type) {
       case ChatMessageType.taskCreated:
-        return RubyTheme.rubyGradient;
+        return Theme.of(context).brightness == Brightness.dark
+            ? RubyTheme.darkRubyGradient
+            : RubyTheme.rubyGradient;
       case ChatMessageType.taskCompleted:
       case ChatMessageType.taskUncompleted:
       case ChatMessageType.taskDeleted:
@@ -296,7 +299,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble>
       case ChatMessageType.taskPriorityChanged:
       case ChatMessageType.taskCategoryChanged:
       case ChatMessageType.taskMoved:
-        return RubyTheme.darkGray.withOpacity(0.8);
+        return RubyTheme.textPrimary(context);
     }
   }
 
@@ -307,7 +310,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble>
 
     if (messageDate == today) {
       // Today - show time
-      return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+      return DateFormatter.formatTime(dateTime);
     } else {
       // Other days - show date
       return '${dateTime.day}/${dateTime.month}';

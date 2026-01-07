@@ -22,15 +22,23 @@ enum TaskPriority {
   }
 }
 
+// Helper class for explicitly setting nullable values to null in copyWith
+class NullableValue<T> {
+  final T? value;
+  const NullableValue(this.value);
+}
+
 class Subtask {
   final String id;
   final String text;
+  final String? description;
   final bool isCompleted;
   final DateTime createdAt;
 
   Subtask({
     required this.id,
     required this.text,
+    this.description,
     this.isCompleted = false,
     required this.createdAt,
   });
@@ -38,12 +46,19 @@ class Subtask {
   Subtask copyWith({
     String? id,
     String? text,
+    Object?
+    description, // Default is null (preserve). Pass NullableValue(null) to clear.
     bool? isCompleted,
     DateTime? createdAt,
   }) {
     return Subtask(
       id: id ?? this.id,
       text: text ?? this.text,
+      description: description == null
+          ? this.description
+          : (description is NullableValue
+                ? description.value as String?
+                : description as String?),
       isCompleted: isCompleted ?? this.isCompleted,
       createdAt: createdAt ?? this.createdAt,
     );
@@ -53,6 +68,7 @@ class Subtask {
     return {
       'id': id,
       'text': text,
+      'description': description,
       'isCompleted': isCompleted,
       'createdAt': createdAt.toIso8601String(),
     };
@@ -62,6 +78,7 @@ class Subtask {
     return Subtask(
       id: json['id'] as String,
       text: json['text'] as String,
+      description: json['description'] as String?,
       isCompleted: json['isCompleted'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
@@ -88,6 +105,10 @@ class Task {
   final DateTime? deadlineDate;
   final String? audioPath;
 
+  // Map of date keys to progress notes for deadline tasks
+  // e.g., {"2026-01-07": "Made good progress", "2026-01-08": "Almost done"}
+  final Map<String, String> dailyProgress;
+
   Task({
     required this.id,
     required this.text,
@@ -105,8 +126,8 @@ class Task {
     this.updatedAt,
     this.subtasks = const [],
     this.deadlineDate,
-
     this.audioPath,
+    this.dailyProgress = const {},
   });
 
   Task copyWith({
@@ -114,39 +135,56 @@ class Task {
     String? text,
     DateTime? createdAt,
     bool? isCompleted,
-    DateTime? completedAt,
+    Object? completedAt,
     String? dayOfWeek,
     bool? isMigrated,
     String? originalDayOfWeek,
     bool? isDeleted,
-    DateTime? deletedAt,
+    Object? deletedAt,
     TaskPriority? priority,
     String? category,
     List<String>? tags,
-    DateTime? updatedAt,
+    Object? updatedAt,
     List<Subtask>? subtasks,
-    DateTime? deadlineDate,
+    Object? deadlineDate,
     String? audioPath,
+    Map<String, String>? dailyProgress,
   }) {
     return Task(
       id: id ?? this.id,
       text: text ?? this.text,
       createdAt: createdAt ?? this.createdAt,
       isCompleted: isCompleted ?? this.isCompleted,
-      completedAt: completedAt ?? this.completedAt,
+      completedAt: completedAt == null
+          ? this.completedAt
+          : (completedAt is NullableValue
+                ? completedAt.value as DateTime?
+                : completedAt as DateTime?),
       dayOfWeek: dayOfWeek ?? this.dayOfWeek,
       isMigrated: isMigrated ?? this.isMigrated,
       originalDayOfWeek: originalDayOfWeek ?? this.originalDayOfWeek,
       isDeleted: isDeleted ?? this.isDeleted,
-      deletedAt: deletedAt ?? this.deletedAt,
+      deletedAt: deletedAt == null
+          ? this.deletedAt
+          : (deletedAt is NullableValue
+                ? deletedAt.value as DateTime?
+                : deletedAt as DateTime?),
       priority: priority ?? this.priority,
       category: category ?? this.category,
       tags: tags ?? this.tags,
-      updatedAt: updatedAt ?? this.updatedAt,
-
+      updatedAt: updatedAt == null
+          ? this.updatedAt
+          : (updatedAt is NullableValue
+                ? updatedAt.value as DateTime?
+                : updatedAt as DateTime?),
       subtasks: subtasks ?? this.subtasks,
-      deadlineDate: deadlineDate ?? this.deadlineDate,
+      deadlineDate: deadlineDate == null
+          ? this.deadlineDate
+          : (deadlineDate is NullableValue
+                ? deadlineDate.value as DateTime?
+                : deadlineDate as DateTime?),
       audioPath: audioPath ?? this.audioPath,
+      dailyProgress: dailyProgress ?? this.dailyProgress,
     );
   }
 
@@ -170,6 +208,7 @@ class Task {
       'subtasks': subtasks.map((s) => s.toJson()).toList(),
       'deadlineDate': deadlineDate?.toIso8601String(),
       'audioPath': audioPath,
+      'dailyProgress': dailyProgress,
     };
   }
 
@@ -204,6 +243,11 @@ class Task {
           ? DateTime.parse(json['deadlineDate'] as String)
           : null,
       audioPath: json['audioPath'] as String?,
+      dailyProgress:
+          (json['dailyProgress'] as Map<String, dynamic>?)?.map(
+            (key, value) => MapEntry(key, value.toString()),
+          ) ??
+          {},
     );
   }
 }

@@ -59,17 +59,9 @@ class TaskListView extends StatelessWidget {
                   task: task,
                   isToday: isToday,
                   onTap: () => onTaskTap(task.id),
-                  onLongPress: () => onTaskLongPress(task.id),
                 );
               },
             ),
     );
   }
 }
-
-
-
-
-
-
-

@@ -170,7 +170,7 @@ class _TaskDetailModalState extends State<TaskDetailModal> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  'يجب أن يكون الموعد النهائي في المستقبل',
+                  'يجب أن يكون الديدلاين في المستقبل',
                   style: RubyTheme.bodyMedium(
                     context,
                   ).copyWith(color: RubyTheme.pureWhite),
@@ -197,7 +197,7 @@ class _TaskDetailModalState extends State<TaskDetailModal> {
       decoration: BoxDecoration(
         color: RubyTheme.pureWhite,
         borderRadius: BorderRadius.circular(RubyTheme.radiusLarge(context)),
-        boxShadow: RubyTheme.mediumShadow,
+        boxShadow: RubyTheme.mediumShadow(context),
       ),
       child: Directionality(
         textDirection: TextDirection.rtl,
@@ -356,7 +356,7 @@ class _TaskDetailModalState extends State<TaskDetailModal> {
                           style: IconButton.styleFrom(
                             foregroundColor: Colors.red,
                           ),
-                          tooltip: 'إزالة الموعد النهائي',
+                          tooltip: 'إزالة الديدلاين',
                         ),
                       IconButton(
                         icon: Icon(

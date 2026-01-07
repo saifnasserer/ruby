@@ -9,13 +9,11 @@ import '../../../../presentation/widgets/date_separator.dart';
 class UnifiedChatView extends StatelessWidget {
   final List<Task> tasks;
   final Function(Task, String) onTaskTap;
-  final Function(String) onTaskLongPress;
 
   const UnifiedChatView({
     super.key,
     required this.tasks,
     required this.onTaskTap,
-    required this.onTaskLongPress,
   });
 
   @override
@@ -91,7 +89,6 @@ class UnifiedChatView extends StatelessWidget {
                 task: task,
                 isToday: isToday,
                 onTap: () => onTaskTap(task, groupDateKey),
-                onLongPress: () => onTaskLongPress(task.id),
               );
             }),
           ],
