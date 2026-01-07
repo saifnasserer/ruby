@@ -66,6 +66,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen>
     _transcriptionController.text = widget.task.text;
     _taskTextController.text = widget.task.text;
 
+    // Load saved draft if exists
+    final savedDraft = widget.taskController.getSubtaskDraft(widget.task.id);
+    if (savedDraft.isNotEmpty) {
+      _subtaskController.text = savedDraft;
+    }
+
     // Initialize scale animation
     _scaleAnimationController = AnimationController(
       duration: const Duration(milliseconds: 150),
@@ -143,6 +149,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen>
   @override
   void dispose() {
     widget.taskController.removeListener(_onTaskUpdated);
+
+    // Save draft text to controller instead of auto-adding
+    widget.taskController.setSubtaskDraft(
+      widget.task.id,
+      _subtaskController.text,
+    );
+
     _subtaskController.dispose();
     _transcriptionController.dispose();
     _taskTextController.dispose();
@@ -168,6 +181,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen>
           createdAt: DateTime.now(),
         ),
       );
+      // Clear draft
+      widget.taskController.setSubtaskDraft(widget.task.id, '');
       _subtaskController.clear();
     });
     _saveSubtasks();

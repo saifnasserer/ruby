@@ -162,7 +162,9 @@ class _TaskBubbleState extends State<TaskBubble>
                               ? null
                               : _getPriorityGradient(),
                           color: widget.task.isCompleted
-                              ? RubyTheme.emerald.withOpacity(0.15)
+                              ? (Theme.of(context).brightness == Brightness.dark
+                                    ? RubyTheme.emerald.withOpacity(0.25)
+                                    : RubyTheme.emerald.withOpacity(0.15))
                               : null,
                           borderRadius: BorderRadius.circular(
                             RubyTheme.radiusLarge(context),
@@ -249,7 +251,14 @@ class _TaskBubbleState extends State<TaskBubble>
                                                 color: widget.task.isCompleted
                                                     ? RubyTheme.textSecondary(
                                                         context,
-                                                      ).withOpacity(0.5)
+                                                      ).withOpacity(
+                                                        Theme.of(
+                                                                  context,
+                                                                ).brightness ==
+                                                                Brightness.dark
+                                                            ? 0.8
+                                                            : 0.5,
+                                                      )
                                                     : RubyTheme
                                                           .pureWhite, // White text for active tasks
                                               ),

@@ -9,6 +9,24 @@ class TaskController extends ChangeNotifier {
 
   Map<String, List<Task>> get tasks => _tasks;
 
+  // Map to store draft subtask text for each task: {taskId: draftText}
+  final Map<String, String> _subtaskDrafts = {};
+
+  /// Save a draft subtask for a specific task
+  void setSubtaskDraft(String taskId, String draft) {
+    if (draft.trim().isEmpty) {
+      _subtaskDrafts.remove(taskId);
+    } else {
+      _subtaskDrafts[taskId] = draft;
+    }
+    // No need to notify listeners since this is local UI state that doesn't affect other screens
+  }
+
+  /// Get the saved draft subtask for a specific task
+  String getSubtaskDraft(String taskId) {
+    return _subtaskDrafts[taskId] ?? '';
+  }
+
   /// Add a new task
   void addTask(String dateKey, String taskText) {
     final task = Task(

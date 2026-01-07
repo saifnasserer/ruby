@@ -126,9 +126,9 @@ class SettingsScreen extends StatelessWidget {
                 SizedBox(height: RubyTheme.spacingXL(context)),
 
                 // About Section
-                _buildSectionHeader(context, 'عن التطبيق'),
-                SizedBox(height: RubyTheme.spacingM(context)),
-                _buildAboutCard(context),
+                // _buildSectionHeader(context, 'عن التطبيق'),
+                // SizedBox(height: RubyTheme.spacingM(context)),
+                // _buildAboutCard(context),
               ],
             ),
           ),
