@@ -231,7 +231,7 @@ mixin WeeklyViewLogicMixin<T extends StatefulWidget> on State<T> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'تم نقل $unfinishedCount مهمة غير مكتملة إلى اليوم',
+            'تم نقل $unfinishedCount مهمة غير مكتملة إلى النهاردة',
             style: RubyTheme.bodyMedium(
               context,
             ).copyWith(color: RubyTheme.pureWhite),

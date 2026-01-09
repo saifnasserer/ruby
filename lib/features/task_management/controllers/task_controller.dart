@@ -191,6 +191,14 @@ class TaskController extends ChangeNotifier {
     return _tasks[dateKey] ?? [];
   }
 
+  /// Get a specific task
+  Task? getTask(String dateKey, String taskId) {
+    return _tasks[dateKey]?.cast<Task?>().firstWhere(
+      (task) => task?.id == taskId,
+      orElse: () => null,
+    );
+  }
+
   /// Get visible tasks for a specific date (excluding deleted)
   List<Task> getVisibleTasksForDate(String dateKey) {
     return (_tasks[dateKey] ?? []).where((task) => !task.isDeleted).toList();
@@ -335,6 +343,25 @@ class TaskController extends ChangeNotifier {
             newText: newText,
             dayKey: dateKey,
           ),
+        );
+      }
+    }
+
+    _saveTasks();
+    notifyListeners();
+  }
+
+  /// Update task text without adding a chat message (useful for real-time updates)
+  void updateTaskText(String dateKey, String taskId, String newText) {
+    final dayTasks = _tasks[dateKey];
+    if (dayTasks != null) {
+      final taskIndex = dayTasks.indexWhere((task) => task.id == taskId);
+      if (taskIndex != -1) {
+        final task = dayTasks[taskIndex];
+
+        dayTasks[taskIndex] = task.copyWith(
+          text: newText,
+          updatedAt: DateTime.now(),
         );
       }
     }

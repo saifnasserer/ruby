@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/ruby_theme.dart';
 import '../../../../core/models/task.dart';
-import '../../../../core/utils/date_formatter.dart';
 import '../../../../presentation/widgets/task_bubble.dart';
 import '../../../../responsive.dart';
 import '../../../../presentation/widgets/date_separator.dart';
@@ -9,11 +8,15 @@ import '../../../../presentation/widgets/date_separator.dart';
 class UnifiedChatView extends StatelessWidget {
   final List<Task> tasks;
   final Function(Task, String) onTaskTap;
+  final bool hasActiveFilters;
+  final VoidCallback? onResetFilters;
 
   const UnifiedChatView({
     super.key,
     required this.tasks,
     required this.onTaskTap,
+    this.hasActiveFilters = false,
+    this.onResetFilters,
   });
 
   @override
@@ -27,29 +30,52 @@ class UnifiedChatView extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                Icons.task_alt_rounded,
+                hasActiveFilters
+                    ? Icons.filter_alt_off
+                    : Icons.task_alt_rounded,
                 size: Responsive.text(context, size: TextSize.heading) * 3,
                 color: RubyTheme.mediumGray.withOpacity(0.3),
               ),
               SizedBox(height: Responsive.space(context, size: Space.medium)),
               Text(
-                'ابدأ بإضافة مهمتك الأولى',
+                hasActiveFilters
+                    ? 'مفيش تاسكات تطابق الفلاتر'
+                    : 'ابدأ بإضافة مهمتك الأولى',
                 style: TextStyle(
                   fontSize: Responsive.text(context, size: TextSize.medium),
                   fontWeight: FontWeight.w500,
                   color: RubyTheme.mediumGray,
                 ),
               ),
+              if (hasActiveFilters && onResetFilters != null) ...[
+                SizedBox(height: Responsive.space(context, size: Space.medium)),
+                ElevatedButton.icon(
+                  onPressed: onResetFilters,
+                  icon: Icon(Icons.refresh, size: 20),
+                  label: Text('إعادة تعيين الفلاتر'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: RubyTheme.sapphire,
+                    foregroundColor: RubyTheme.pureWhite,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: Responsive.space(context, size: Space.large),
+                      vertical: Responsive.space(context, size: Space.medium),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
       );
     }
 
-    // Group tasks by their creation date
+    // Group tasks by their storage date (dayOfWeek field)
     final Map<String, List<Task>> groupedByDate = {};
     for (var task in tasks) {
-      final itemDateKey = DateFormatter.getDateKey(task.createdAt);
+      final itemDateKey = task.dayOfWeek;
       groupedByDate.putIfAbsent(itemDateKey, () => []);
       groupedByDate[itemDateKey]!.add(task);
     }

@@ -644,7 +644,7 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'تم نقل $migratedCount مهمة غير مكتملة إلى اليوم',
+              'تم نقل $migratedCount مهمة غير مكتملة إلى النهاردة',
               style: RubyTheme.bodyMedium(
                 context,
               ).copyWith(color: RubyTheme.pureWhite),
@@ -898,7 +898,7 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                           //               width: RubyTheme.spacingS(context),
                           //             ),
                           //             Text(
-                          //               'نقل المهام غير المكتملة من الأيام الماضية',
+                          //               'نقل التاسكات غير المكتملة من الأيام الماضية',
                           //               style: RubyTheme.bodyLarge(context)
                           //                   .copyWith(
                           //                     color: RubyTheme.pureWhite,

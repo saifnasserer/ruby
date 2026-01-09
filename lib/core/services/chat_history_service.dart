@@ -287,7 +287,7 @@ class ChatHistoryService {
       id: 'day_summary_${dayKey}_${DateTime.now().millisecondsSinceEpoch}',
       type: ChatMessageType.daySummary,
       content:
-          'ملخص اليوم: $completedTasks من $totalTasks مهام مكتملة ($completionRate%)${migratedTasks > 0 ? '، $migratedTasks مهام منقولة' : ''}',
+          'ملخص النهاردة: $completedTasks من $totalTasks تاسكات مكتملة ($completionRate%)${migratedTasks > 0 ? '، $migratedTasks تاسكات منقولة' : ''}',
       timestamp: DateTime.now(),
       metadata: {
         'dayKey': dayKey,
@@ -312,7 +312,7 @@ class ChatHistoryService {
       id: 'week_summary_${DateTime.now().millisecondsSinceEpoch}',
       type: ChatMessageType.weekSummary,
       content:
-          'ملخص الأسبوع: $completedTasks من $totalTasks مهام مكتملة ($completionRate%)${migratedTasks > 0 ? '، $migratedTasks مهام منقولة' : ''}',
+          'ملخص الأسبوع: $completedTasks من $totalTasks تاسكات مكتملة ($completionRate%)${migratedTasks > 0 ? '، $migratedTasks تاسكات منقولة' : ''}',
       timestamp: DateTime.now(),
       metadata: {
         'completedTasks': completedTasks,

@@ -92,13 +92,19 @@ class _MigrationButtonState extends State<MigrationButton>
                   boxShadow: [
                     BoxShadow(
                       color: const Color(0xFFE91E63).withOpacity(0.3),
-                      blurRadius: Responsive.space(context, size: Space.medium),
+                      blurRadius:
+                          Responsive.space(context, size: Space.medium) < 0
+                          ? 0
+                          : Responsive.space(context, size: Space.medium),
                       offset: const Offset(0, 4),
                       spreadRadius: 0,
                     ),
                     BoxShadow(
                       color: const Color(0xFFE91E63).withOpacity(0.1),
-                      blurRadius: Responsive.space(context, size: Space.xlarge),
+                      blurRadius:
+                          Responsive.space(context, size: Space.xlarge) < 0
+                          ? 0
+                          : Responsive.space(context, size: Space.xlarge),
                       offset: const Offset(0, 8),
                       spreadRadius: 0,
                     ),
@@ -137,7 +143,7 @@ class _MigrationButtonState extends State<MigrationButton>
                       // Main text
                       Expanded(
                         child: Text(
-                          'نقل المهام غير المكتملة',
+                          'نقل التاسكات غير المكتملة',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: Responsive.text(

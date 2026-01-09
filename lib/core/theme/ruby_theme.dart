@@ -180,13 +180,13 @@ class RubyTheme {
     height: 1.3,
   );
 
-  // Shadows - theme-aware
+  // Shadows - theme-aware with safety checks
   static List<BoxShadow> softShadow(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return [
       BoxShadow(
         color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
-        blurRadius: 12,
+        blurRadius: 12.0 < 0 ? 0 : 12.0,
         offset: const Offset(0, 4),
       ),
     ];
@@ -197,7 +197,7 @@ class RubyTheme {
     return [
       BoxShadow(
         color: Colors.black.withOpacity(isDark ? 0.4 : 0.12),
-        blurRadius: 20,
+        blurRadius: 20.0 < 0 ? 0 : 20.0,
         offset: const Offset(0, 8),
       ),
     ];
@@ -208,7 +208,7 @@ class RubyTheme {
     return [
       BoxShadow(
         color: Colors.black.withOpacity(isDark ? 0.5 : 0.16),
-        blurRadius: 32,
+        blurRadius: 32.0 < 0 ? 0 : 32.0,
         offset: const Offset(0, 16),
       ),
     ];

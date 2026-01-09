@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/ruby_theme.dart';
+import '../../../core/models/task_filter.dart';
 import '../../../presentation/widgets/chat_input.dart';
 import '../../settings/views/settings_screen.dart';
 import '../../settings/controllers/settings_controller.dart';
@@ -9,7 +10,11 @@ class SlideableTaskInput extends StatefulWidget {
   final Function(String) onTaskAdded;
   final Function(String, String)? onTaskRestored;
   final Function(String, String?)? onVoiceTaskAdded;
+
   final SettingsController settingsController;
+  final VoidCallback? onSearchTap;
+  final VoidCallback? onFilterTap;
+  final TaskFilter? currentFilter;
 
   const SlideableTaskInput({
     super.key,
@@ -18,6 +23,9 @@ class SlideableTaskInput extends StatefulWidget {
     required this.settingsController,
     this.onTaskRestored,
     this.onVoiceTaskAdded,
+    this.onSearchTap,
+    this.onFilterTap,
+    this.currentFilter,
   });
 
   @override
@@ -141,6 +149,8 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
                         onTaskRestored: widget.onTaskRestored,
                         onVoiceTaskAdded: widget.onVoiceTaskAdded,
                         settingsController: widget.settingsController,
+                        hasActiveFilters:
+                            widget.currentFilter?.hasActiveFilters ?? false,
                       ),
                     ),
                   ),
@@ -183,26 +193,47 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
           SizedBox(width: 15), // Reduced Spacing (Closer)
           _buildQuickActionButton(
             context,
-            icon: Icons.calendar_month,
-            color: RubyTheme.surfaceVariant(context),
-            label: 'التاريخ',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('الذهاب للتاريخ (قريباً)')),
-              );
-            },
-          ),
-          SizedBox(width: 15), // Reduced Spacing
-          _buildQuickActionButton(
-            context,
             icon: Icons.search,
             color: RubyTheme.surfaceVariant(context),
             label: 'بحث',
             onTap: () {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('البحث (قريباً)')));
+              widget.onSearchTap?.call();
+              _animateTo(0);
             },
+          ),
+          SizedBox(width: 15),
+          // Filter button with badge
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              _buildQuickActionButton(
+                context,
+                icon: Icons.filter_list,
+                color: RubyTheme.surfaceVariant(context),
+                label: 'تصفية',
+                onTap: () {
+                  widget.onFilterTap?.call();
+                  _animateTo(0);
+                },
+              ),
+              if (widget.currentFilter?.hasActiveFilters ?? false)
+                Positioned(
+                  top: -4,
+                  left: -4,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: RubyTheme.priorityHigh,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: RubyTheme.surface(context),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),

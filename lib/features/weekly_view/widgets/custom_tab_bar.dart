@@ -66,10 +66,11 @@ class CustomTabBar extends StatelessWidget {
                       ? [
                           BoxShadow(
                             color: const Color(0xFFE91E63).withOpacity(0.3),
-                            blurRadius: Responsive.space(
-                              context,
-                              size: Space.medium,
-                            ),
+                            blurRadius:
+                                Responsive.space(context, size: Space.medium) <
+                                    0
+                                ? 0
+                                : Responsive.space(context, size: Space.medium),
                             offset: const Offset(0, 4),
                             spreadRadius: 0,
                           ),
@@ -77,10 +78,10 @@ class CustomTabBar extends StatelessWidget {
                       : [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.05),
-                            blurRadius: Responsive.space(
-                              context,
-                              size: Space.small,
-                            ),
+                            blurRadius:
+                                Responsive.space(context, size: Space.small) < 0
+                                ? 0
+                                : Responsive.space(context, size: Space.small),
                             offset: const Offset(0, 2),
                           ),
                         ],

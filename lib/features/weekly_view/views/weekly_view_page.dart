@@ -3,14 +3,17 @@ import 'package:flutter/services.dart';
 import 'dart:io';
 import '../../../../core/theme/ruby_theme.dart';
 import '../../../../core/utils/date_formatter.dart';
+import '../../../../core/models/task_filter.dart';
 import '../widgets/unified_chat_view.dart';
 import '../../../presentation/widgets/chat_input.dart';
+import '../../../presentation/widgets/filter_bottom_sheet.dart';
 import '../widgets/slideable_task_input.dart';
 import '../../../presentation/screens/task_detail_screen.dart';
 import '../../../../core/models/task.dart';
 import '../../../../features/settings/controllers/settings_controller.dart';
 import '../widgets/weekly_view_modals.dart';
 import '../widgets/weekly_view_logic_mixin.dart';
+import '../../search/views/search_screen.dart';
 
 class WeeklyViewPage extends StatefulWidget {
   final SettingsController? settingsController;
@@ -23,6 +26,7 @@ class WeeklyViewPage extends StatefulWidget {
 
 class _WeeklyViewPageState extends State<WeeklyViewPage>
     with TickerProviderStateMixin, WeeklyViewLogicMixin<WeeklyViewPage> {
+  TaskFilter _currentFilter = const TaskFilter();
   @override
   void initState() {
     super.initState();
@@ -127,6 +131,7 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: statusBarStyle,
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         backgroundColor: Colors.transparent,
         body: GestureDetector(
           onTap: () => FocusScope.of(context).unfocus(),
@@ -175,20 +180,33 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
                         Expanded(child: _buildUnifiedChatView()),
                         if (widget.settingsController != null)
                           SlideableTaskInput(
-                            dayOfWeek: 'اليوم',
+                            dayOfWeek: 'النهاردة',
                             onTaskAdded: addTaskToCurrentDay,
                             onTaskRestored: (taskId, dateKey) =>
                                 restoreTask(taskId),
                             onVoiceTaskAdded: addVoiceTaskToCurrentDay,
                             settingsController: widget.settingsController!,
+                            onSearchTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => SearchScreen(
+                                    taskController: taskController,
+                                  ),
+                                ),
+                              );
+                            },
+                            onFilterTap: () => _showFilterBottomSheet(),
+                            currentFilter: _currentFilter,
                           )
                         else
                           ChatInput(
-                            dayOfWeek: 'اليوم',
+                            dayOfWeek: 'النهاردة',
                             onTaskAdded: addTaskToCurrentDay,
                             onTaskRestored: (taskId, dateKey) =>
                                 restoreTask(taskId),
                             onVoiceTaskAdded: addVoiceTaskToCurrentDay,
+                            hasActiveFilters: _currentFilter.hasActiveFilters,
                           ),
                       ],
                     ),
@@ -208,9 +226,18 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
       allTasks.addAll(tasks.where((task) => !task.isDeleted));
     });
 
+    // Apply filters
+    final filteredTasks = _applyFilters(allTasks);
+
     return UnifiedChatView(
-      tasks: allTasks,
+      tasks: filteredTasks,
       onTaskTap: (task, dateKey) => _showTaskDetailScreen(task, dateKey),
+      hasActiveFilters: _currentFilter.hasActiveFilters,
+      onResetFilters: () {
+        setState(() {
+          _currentFilter = _currentFilter.reset();
+        });
+      },
     );
   }
 
@@ -230,5 +257,89 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
         ),
       ),
     );
+  }
+
+  void _showFilterBottomSheet() async {
+    final newFilter = await showFilterBottomSheet(
+      context: context,
+      currentFilter: _currentFilter,
+    );
+
+    if (newFilter != null && newFilter != _currentFilter) {
+      setState(() {
+        _currentFilter = newFilter;
+      });
+    }
+  }
+
+  List<Task> _applyFilters(List<Task> tasks) {
+    return tasks.where((task) {
+      // Apply completion filter
+      if (!_matchesCompletionFilter(task)) {
+        return false;
+      }
+
+      // Apply priority filter
+      if (!_matchesPriorityFilter(task)) {
+        return false;
+      }
+
+      // Apply date filter
+      if (!_matchesDateFilter(task)) {
+        return false;
+      }
+
+      return true;
+    }).toList();
+  }
+
+  bool _matchesCompletionFilter(Task task) {
+    switch (_currentFilter.completionFilter) {
+      case TaskCompletionFilter.all:
+        return true;
+      case TaskCompletionFilter.completed:
+        return task.isCompleted;
+      case TaskCompletionFilter.uncompleted:
+        return !task.isCompleted;
+    }
+  }
+
+  bool _matchesPriorityFilter(Task task) {
+    if (_currentFilter.priorityFilter == null) {
+      return true;
+    }
+
+    switch (_currentFilter.priorityFilter!) {
+      case TaskPriorityFilter.important:
+        return task.priority == TaskPriority.important;
+      case TaskPriorityFilter.normal:
+        return task.priority == TaskPriority.normal;
+    }
+  }
+
+  bool _matchesDateFilter(Task task) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final taskDate = DateTime(
+      task.createdAt.year,
+      task.createdAt.month,
+      task.createdAt.day,
+    );
+
+    switch (_currentFilter.dateFilter) {
+      case TaskDateFilter.all:
+        return true;
+      case TaskDateFilter.today:
+        return taskDate == today;
+      case TaskDateFilter.thisWeek:
+        // Check if task is in current week (Saturday to Friday)
+        final currentWeekDates = weeklyViewController.currentWeekDates;
+        return currentWeekDates.any((date) {
+          final dateOnly = DateTime(date.year, date.month, date.day);
+          return dateOnly == taskDate;
+        });
+      case TaskDateFilter.past:
+        return taskDate.isBefore(today);
+    }
   }
 }

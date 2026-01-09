@@ -9,6 +9,7 @@ class ChatInput extends StatefulWidget {
   final Function(String, String)? onTaskRestored;
   final Function(String, String?)? onVoiceTaskAdded;
   final SettingsController? settingsController;
+  final bool hasActiveFilters;
 
   const ChatInput({
     super.key,
@@ -17,6 +18,7 @@ class ChatInput extends StatefulWidget {
     this.onTaskRestored,
     this.onVoiceTaskAdded,
     this.settingsController,
+    this.hasActiveFilters = false,
   });
 
   @override
@@ -170,7 +172,9 @@ class _ChatInputState extends State<ChatInput> {
                     decoration: InputDecoration(
                       hintText: _isRecording
                           ? 'جاري التسجيل...'
-                          : 'اكتب التاسك ...',
+                          : (widget.hasActiveFilters
+                                ? 'اكتب التاسك (فلتر نشط) ...'
+                                : 'اكتب التاسك ...'),
                       hintStyle: RubyTheme.bodyMedium(context).copyWith(
                         color: _isRecording
                             ? RubyTheme.priorityHigh
@@ -183,13 +187,29 @@ class _ChatInputState extends State<ChatInput> {
                       ),
                       suffixIcon: _isTyping
                           ? null
-                          : Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              size: 16,
-                              color: RubyTheme.textSecondary(
-                                context,
-                              ).withOpacity(0.5),
-                            ),
+                          : (widget.hasActiveFilters
+                                ? Container(
+                                    margin: EdgeInsets.all(8),
+                                    padding: EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: RubyTheme.sapphire.withOpacity(
+                                        0.15,
+                                      ),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.filter_list,
+                                      size: 16,
+                                      color: RubyTheme.sapphire,
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.arrow_back_ios_new_rounded,
+                                    size: 16,
+                                    color: RubyTheme.textSecondary(
+                                      context,
+                                    ).withOpacity(0.5),
+                                  )),
                     ),
                     style: RubyTheme.bodyLarge(
                       context,

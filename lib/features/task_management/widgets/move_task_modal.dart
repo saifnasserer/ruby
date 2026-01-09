@@ -131,7 +131,7 @@ class _MoveTaskModalState extends State<MoveTaskModal> {
                                   ),
                                   if (isCurrentDay)
                                     Text(
-                                      'اليوم الحالي',
+                                      'النهاردة الحالي',
                                       style: RubyTheme.caption(
                                         context,
                                       ).copyWith(color: RubyTheme.mediumGray),

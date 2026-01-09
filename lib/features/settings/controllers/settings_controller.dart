@@ -9,6 +9,7 @@ class SettingsController extends ChangeNotifier {
   static const String _notificationsKey = 'enable_notifications';
   static const String _isAssetWallpaperKey = 'is_asset_wallpaper';
   static const String _darkModeKey = 'dark_mode';
+  static const String _recentWallpapersKey = 'recent_wallpapers';
 
   final SharedPreferences _prefs;
 
@@ -19,6 +20,7 @@ class SettingsController extends ChangeNotifier {
   bool _enableNotifications = true;
   bool _isAssetWallpaper = true;
   bool _isDarkMode = false;
+  List<String> _recentWallpapers = [];
 
   SettingsController(this._prefs) {
     _loadSettings();
@@ -32,6 +34,7 @@ class SettingsController extends ChangeNotifier {
   bool get enableNotifications => _enableNotifications;
   bool get isAssetWallpaper => _isAssetWallpaper;
   bool get isDarkMode => _isDarkMode;
+  List<String> get recentWallpapers => _recentWallpapers;
 
   void _loadSettings() {
     _wallpaperType = _prefs.getString(_wallpaperTypeKey) ?? 'image';
@@ -44,6 +47,7 @@ class SettingsController extends ChangeNotifier {
         _prefs.getBool(_isAssetWallpaperKey) ??
         (_wallpaperPath == 'assets/pattern.jpg');
     _isDarkMode = _prefs.getBool(_darkModeKey) ?? false;
+    _recentWallpapers = _prefs.getStringList(_recentWallpapersKey) ?? [];
     notifyListeners();
   }
 
@@ -63,9 +67,29 @@ class SettingsController extends ChangeNotifier {
   Future<void> setWallpaperImage(String path, {bool isAsset = false}) async {
     _wallpaperPath = path;
     _isAssetWallpaper = isAsset;
+
+    // Add to recent wallpapers if it's a file path (not asset) and unique
+    if (!isAsset && !_recentWallpapers.contains(path)) {
+      _recentWallpapers.add(path); // Add to end
+      if (_recentWallpapers.length > 5) {
+        _recentWallpapers.removeAt(0); // Remove oldest (first)
+      }
+      await _prefs.setStringList(_recentWallpapersKey, _recentWallpapers);
+    }
+
     await _prefs.setString(_wallpaperPathKey, path);
     await _prefs.setBool(_isAssetWallpaperKey, isAsset);
     await setWallpaperType('image');
+    notifyListeners();
+  }
+
+  Future<void> removeWallpaper(String path) async {
+    _recentWallpapers.remove(path);
+    await _prefs.setStringList(_recentWallpapersKey, _recentWallpapers);
+    // If we deleted the current wallpaper, reset to default
+    if (_wallpaperPath == path) {
+      await setWallpaperImage('assets/pattern.jpg', isAsset: true);
+    }
     notifyListeners();
   }
 

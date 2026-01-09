@@ -206,9 +206,9 @@ mixin ChatViewMixin on State {
     final dateOnly = DateTime(date.year, date.month, date.day);
 
     if (dateOnly == today) {
-      return 'اليوم';
+      return 'النهاردة';
     } else if (dateOnly == yesterday) {
-      return 'أمس';
+      return 'امبارح';
     } else {
       // Format as "Day DD Month"
       final weekDays = [

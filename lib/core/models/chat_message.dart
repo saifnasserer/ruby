@@ -108,7 +108,7 @@ extension ChatMessageTypeExtension on ChatMessageType {
       case ChatMessageType.taskMigrated:
         return 'تم نقل التاسك';
       case ChatMessageType.daySummary:
-        return 'ملخص اليوم';
+        return 'ملخص النهاردة';
       case ChatMessageType.weekSummary:
         return 'ملخص الأسبوع';
       case ChatMessageType.taskRestored:
