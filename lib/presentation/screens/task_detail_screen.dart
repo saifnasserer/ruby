@@ -32,12 +32,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   late TextEditingController _subtaskController;
   late List<Subtask> _subtasks;
   Task? _currentTask;
+  late String _currentDateKey; // Track current date key
 
   @override
   void initState() {
     super.initState();
     _subtaskController = TextEditingController();
     _currentTask = widget.task;
+    _currentDateKey = widget.dateKey; // Initialize with original date key
     _subtasks = List.from(_currentTask!.subtasks);
 
     // Load subtask draft
@@ -64,13 +66,26 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       setState(() {
         // Refresh task data ensuring we have the latest state
         final currentId = _currentTask?.id ?? widget.task.id;
-        final updatedTask = widget.taskController.getTask(
-          widget.dateKey,
-          currentId,
-        );
-        if (updatedTask != null) {
+
+        // Search for the task across all dates to find its current location
+        Task? updatedTask;
+        String? foundDateKey;
+
+        for (final entry in widget.taskController.tasks.entries) {
+          final task = entry.value.cast<Task?>().firstWhere(
+            (t) => t?.id == currentId,
+            orElse: () => null,
+          );
+          if (task != null) {
+            updatedTask = task;
+            foundDateKey = entry.key;
+            break;
+          }
+        }
+
+        if (updatedTask != null && foundDateKey != null) {
           _currentTask = updatedTask;
-          // Also sync subtasks list if it wasn't the source of change
+          _currentDateKey = foundDateKey; // Update current date key
           _subtasks = List.from(_currentTask!.subtasks);
         }
       });
@@ -79,7 +94,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   void _saveSubtasks() {
     widget.taskController.updateTaskSubtasks(
-      widget.dateKey,
+      _currentDateKey,
       widget.task.id,
       _subtasks,
     );
@@ -124,7 +139,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       title: 'هل أنت متأكد من حذف هذه التاسك؟',
       message: 'لا يمكن التراجع عن هذا الإجراء.',
       onConfirm: () {
-        widget.taskController.deleteTask(widget.dateKey, widget.task.id);
+        widget.taskController.deleteTask(_currentDateKey, widget.task.id);
         widget.onTaskUpdated?.call();
         Navigator.pop(context); // Close detail screen
       },
@@ -187,7 +202,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               TaskDetailTitleAndAudio(
                 task: taskToDisplay,
                 taskController: widget.taskController,
-                dateKey: widget.dateKey,
+                dateKey: _currentDateKey,
                 onTaskUpdated: _onTaskUpdated,
               ),
 
@@ -197,7 +212,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               TaskDetailProperties(
                 task: taskToDisplay,
                 taskController: widget.taskController,
-                dateKey: widget.dateKey,
+                dateKey: _currentDateKey,
                 onTaskUpdated: _onTaskUpdated,
               ),
 

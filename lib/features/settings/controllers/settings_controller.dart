@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 
 class SettingsController extends ChangeNotifier {
   static const String _wallpaperPathKey = 'wallpaper_path';
@@ -64,20 +67,40 @@ class SettingsController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setWallpaperImage(String path, {bool isAsset = false}) async {
-    _wallpaperPath = path;
+  Future<void> setWallpaperImage(
+    String imagePath, {
+    bool isAsset = false,
+  }) async {
+    String finalPath = imagePath;
+
+    // If it's a file from picker (cached), persist it to local storage
+    if (!isAsset) {
+      try {
+        final directory = await getApplicationDocumentsDirectory();
+        final fileName = path.basename(imagePath);
+        final savedImage = await File(
+          imagePath,
+        ).copy('${directory.path}/$fileName');
+        finalPath = savedImage.path;
+      } catch (e) {
+        print('Error saving image: $e');
+        // Fallback to original path if copy fails
+      }
+    }
+
+    _wallpaperPath = finalPath;
     _isAssetWallpaper = isAsset;
 
     // Add to recent wallpapers if it's a file path (not asset) and unique
-    if (!isAsset && !_recentWallpapers.contains(path)) {
-      _recentWallpapers.add(path); // Add to end
+    if (!isAsset && !_recentWallpapers.contains(finalPath)) {
+      _recentWallpapers.add(finalPath); // Add to end
       if (_recentWallpapers.length > 5) {
         _recentWallpapers.removeAt(0); // Remove oldest (first)
       }
       await _prefs.setStringList(_recentWallpapersKey, _recentWallpapers);
     }
 
-    await _prefs.setString(_wallpaperPathKey, path);
+    await _prefs.setString(_wallpaperPathKey, finalPath);
     await _prefs.setBool(_isAssetWallpaperKey, isAsset);
     await setWallpaperType('image');
     notifyListeners();

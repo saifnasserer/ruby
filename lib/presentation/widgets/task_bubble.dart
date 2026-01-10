@@ -70,7 +70,12 @@ class _TaskBubbleState extends State<TaskBubble>
 
   Future<void> _initAudioSource() async {
     if (widget.task.audioPath != null) {
-      await _audioPlayer.setSource(DeviceFileSource(widget.task.audioPath!));
+      try {
+        await _audioPlayer.setVolume(1.0); // Set to 100% volume
+        await _audioPlayer.setSource(DeviceFileSource(widget.task.audioPath!));
+      } catch (e) {
+        print('Error initializing audio source: $e');
+      }
     }
   }
 
@@ -114,10 +119,29 @@ class _TaskBubbleState extends State<TaskBubble>
   Future<void> _toggleAudio() async {
     if (widget.task.audioPath == null) return;
 
-    if (_isPlaying) {
-      await _audioPlayer.pause();
-    } else {
-      await _audioPlayer.resume();
+    try {
+      if (_isPlaying) {
+        await _audioPlayer.pause();
+      } else {
+        // If duration is zero, it might mean source wasn't loaded correctly or init failed.
+        // Try playing directly with source to force load.
+        if (_duration == Duration.zero && _position == Duration.zero) {
+          await _audioPlayer.play(DeviceFileSource(widget.task.audioPath!));
+        } else {
+          if (_audioPlayer.state == PlayerState.completed) {
+            await _audioPlayer.seek(Duration.zero);
+          }
+          await _audioPlayer.resume();
+        }
+      }
+    } catch (e) {
+      print('Error toggling audio: $e');
+      // Fallback: try forcing play with source
+      try {
+        await _audioPlayer.play(DeviceFileSource(widget.task.audioPath!));
+      } catch (e2) {
+        print('Fallback play failed: $e2');
+      }
     }
   }
 
@@ -632,45 +656,73 @@ class _TaskBubbleState extends State<TaskBubble>
           //   tooltip: 'تفريغ النص',
           // ),
           SizedBox(width: 8),
-          // Waves visualization placeholder - using a styled slider for now
-          // but formatted to look more like a voice message
+          // Waveform visualization
           SizedBox(
             width: 120,
-            child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                activeTrackColor: RubyTheme.pureWhite,
-                inactiveTrackColor: RubyTheme.pureWhite.withOpacity(0.3),
-                thumbColor: RubyTheme.pureWhite,
-                trackHeight: 3.0,
-                thumbShape: RoundSliderThumbShape(enabledThumbRadius: 5.0),
-                overlayShape: RoundSliderOverlayShape(overlayRadius: 10.0),
-              ),
-              child: Slider(
-                value: _position.inMilliseconds.toDouble(),
-                max: _duration.inMilliseconds.toDouble() > 0
-                    ? _duration.inMilliseconds.toDouble()
-                    : 1.0,
-                onChanged: (value) {
-                  setState(() {
-                    _position = Duration(milliseconds: value.toInt());
-                  });
-                },
-                onChangeEnd: (value) async {
-                  final position = Duration(milliseconds: value.toInt());
-                  try {
-                    await _audioPlayer.seek(position);
-                  } catch (e) {
-                    print('Error seeking: $e');
-                  }
-                },
-              ),
+            height: 32,
+            child: Stack(
+              children: [
+                // Waveform
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _TaskBubbleWaveformPainter(
+                      progress: _duration.inMilliseconds > 0
+                          ? _position.inMilliseconds / _duration.inMilliseconds
+                          : 0.0,
+                      activeColor: RubyTheme.pureWhite,
+                      inactiveColor: RubyTheme.pureWhite.withOpacity(0.3),
+                    ),
+                  ),
+                ),
+                // Invisible slider for seeking
+                Positioned.fill(
+                  child: Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: Colors.transparent,
+                        inactiveTrackColor: Colors.transparent,
+                        thumbColor: Colors.transparent,
+                        thumbShape: RoundSliderThumbShape(
+                          enabledThumbRadius: 0,
+                        ),
+                        overlayShape: RoundSliderOverlayShape(overlayRadius: 0),
+                        trackHeight: 32.0,
+                      ),
+                      child: Slider(
+                        value: _position.inMilliseconds.toDouble(),
+                        max: _duration.inMilliseconds.toDouble() > 0
+                            ? _duration.inMilliseconds.toDouble()
+                            : 1.0,
+                        onChanged: (value) {
+                          setState(() {
+                            _position = Duration(milliseconds: value.toInt());
+                          });
+                        },
+                        onChangeEnd: (value) async {
+                          final position = Duration(
+                            milliseconds: value.toInt(),
+                          );
+                          try {
+                            await _audioPlayer.seek(position);
+                          } catch (e) {
+                            print('Error seeking: $e');
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           if (_duration.inSeconds > 0)
             Padding(
               padding: const EdgeInsets.only(left: 4.0, right: 8.0),
               child: Text(
-                '${_position.inMinutes}:${(_position.inSeconds % 60).toString().padLeft(2, '0')}',
+                _isPlaying
+                    ? '${_position.inMinutes}:${(_position.inSeconds % 60).toString().padLeft(2, '0')}'
+                    : '${_duration.inMinutes}:${(_duration.inSeconds % 60).toString().padLeft(2, '0')}',
                 style: RubyTheme.caption(context).copyWith(
                   color: RubyTheme.pureWhite,
                   fontSize: 10,
@@ -681,5 +733,56 @@ class _TaskBubbleState extends State<TaskBubble>
         ],
       ),
     );
+  }
+}
+
+// Custom painter for task bubble waveform visualization
+class _TaskBubbleWaveformPainter extends CustomPainter {
+  final double progress;
+  final Color activeColor;
+  final Color inactiveColor;
+
+  _TaskBubbleWaveformPainter({
+    required this.progress,
+    required this.activeColor,
+    required this.inactiveColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final barCount = 25; // Fewer bars for smaller bubble
+    final barWidth = size.width / (barCount * 2 - 1);
+    final centerY = size.height / 2;
+
+    // Generate pseudo-random heights for waveform bars
+    final heights = List.generate(barCount, (index) {
+      final baseHeight = 0.3 + (index % 3) * 0.2 + (index % 5) * 0.15;
+      return size.height * baseHeight.clamp(0.2, 0.9);
+    });
+
+    for (int i = 0; i < barCount; i++) {
+      final x = i * barWidth * 2;
+      final barProgress = i / barCount;
+      final isActive = barProgress <= progress;
+
+      final paint = Paint()
+        ..color = isActive ? activeColor : inactiveColor
+        ..strokeWidth = barWidth
+        ..strokeCap = StrokeCap.round;
+
+      final barHeight = heights[i];
+      canvas.drawLine(
+        Offset(x, centerY - barHeight / 2),
+        Offset(x, centerY + barHeight / 2),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_TaskBubbleWaveformPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.activeColor != activeColor ||
+        oldDelegate.inactiveColor != inactiveColor;
   }
 }

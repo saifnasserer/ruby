@@ -10,8 +10,19 @@ class DateSeparator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final date = DateTime.parse(dateKey);
-    final dateLabel = DateFormatter.getRelativeDateLabel(date);
+    // Safely parse dateKey - it might be in Arabic format or invalid
+    DateTime? date;
+    try {
+      date = DateTime.parse(dateKey);
+    } catch (e) {
+      // If parsing fails (e.g., Arabic day name like "الجمعة"), date will be null
+      date = null;
+    }
+
+    // Get label - if date is null, use dateKey directly (it's already formatted)
+    final dateLabel = date != null
+        ? DateFormatter.getRelativeDateLabel(date)
+        : dateKey;
 
     return Padding(
       padding: EdgeInsets.symmetric(

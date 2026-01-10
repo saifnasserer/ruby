@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/ruby_theme.dart';
 import '../../../../responsive.dart';
 import '../../../../core/models/task.dart';
+import '../../../../core/services/sound_service.dart';
 import '../../../widgets/confirmation_dialog.dart';
 
 class TaskDetailSubtasks extends StatefulWidget {
@@ -27,7 +28,14 @@ class TaskDetailSubtasks extends StatefulWidget {
 class _TaskDetailSubtasksState extends State<TaskDetailSubtasks> {
   void _toggleSubtask(int index) {
     final subtask = widget.subtasks[index];
+    final wasCompleted = subtask.isCompleted;
+
     widget.onUpdate(index, subtask.copyWith(isCompleted: !subtask.isCompleted));
+
+    // Play sound when subtask is completed (not when uncompleted)
+    if (!wasCompleted) {
+      SoundService.instance.playSubtaskCompletionSound();
+    }
   }
 
   void _showEditSubtaskDialog(int index) {

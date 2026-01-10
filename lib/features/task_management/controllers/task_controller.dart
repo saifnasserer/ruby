@@ -502,10 +502,33 @@ class TaskController extends ChangeNotifier {
         // Remove from original day
         fromDayTasks.removeAt(taskIndex);
 
-        // Add to new day with updated dayOfWeek
+        // Parse the target date from toDateKey (format: "YYYY-MM-DD")
+        final dateParts = toDateKey.split('-');
+        DateTime newCreatedAt = task.createdAt; // fallback
+
+        if (dateParts.length == 3) {
+          try {
+            newCreatedAt = DateTime(
+              int.parse(dateParts[0]),
+              int.parse(dateParts[1]),
+              int.parse(dateParts[2]),
+              task.createdAt.hour,
+              task.createdAt.minute,
+              task.createdAt.second,
+            );
+          } catch (e) {
+            print('Error parsing date: $e');
+          }
+        }
+
+        // Add to new day with updated dayOfWeek AND createdAt
         _tasks[toDateKey] = _tasks[toDateKey] ?? [];
         _tasks[toDateKey]!.add(
-          task.copyWith(dayOfWeek: toDateKey, updatedAt: DateTime.now()),
+          task.copyWith(
+            dayOfWeek: toDateKey,
+            createdAt: newCreatedAt,
+            updatedAt: DateTime.now(),
+          ),
         );
 
         // Add chat message for task move

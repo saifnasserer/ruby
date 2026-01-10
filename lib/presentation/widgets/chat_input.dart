@@ -7,7 +7,7 @@ class ChatInput extends StatefulWidget {
   final String dayOfWeek;
   final Function(String) onTaskAdded;
   final Function(String, String)? onTaskRestored;
-  final Function(String, String?)? onVoiceTaskAdded;
+  final Function(String, List<double>?)? onVoiceTaskAdded;
   final SettingsController? settingsController;
   final bool hasActiveFilters;
 
@@ -69,7 +69,10 @@ class _ChatInputState extends State<ChatInput> {
       });
 
       if (result['path'] != null && widget.onVoiceTaskAdded != null) {
-        widget.onVoiceTaskAdded!(result['path']!, result['transcription']);
+        widget.onVoiceTaskAdded!(
+          result['path']!,
+          result['waveformData'] as List<double>?,
+        );
       }
     } else {
       // Start recording

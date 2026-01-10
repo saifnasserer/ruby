@@ -101,16 +101,6 @@ class SettingsScreen extends StatelessWidget {
 
   // --- 1. HERO WALLPAPER GALLERY ---
   Widget _buildHeroWallpaperGallery(BuildContext context) {
-    // Softer, eye-friendly pastel colors
-    final safeColors = [
-      {'name': 'Charcoal', 'color': 0xFF37474F}, // Softer dark
-      {'name': 'Midnight', 'color': 0xFF263238},
-      {'name': 'Lavender', 'color': 0xFF9575CD}, // Softer purple
-      {'name': 'Sage', 'color': 0xFFA5D6A7}, // Softer green
-      {'name': 'Cream', 'color': 0xFFFFF9C4},
-      {'name': 'Cloud', 'color': 0xFFECEFF1},
-    ];
-
     return SizedBox(
       height: 180, // Tall cards for "Hero" feel
       child: ListView(
@@ -195,22 +185,6 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
           ),
-
-          // D. Safe Theme Colors
-          ...safeColors.map((colorData) {
-            final colorValue = colorData['color'] as int;
-            final color = Color(colorValue);
-            final isSelected =
-                settingsController.wallpaperType == 'color' &&
-                settingsController.backgroundColor.value == colorValue;
-
-            return _buildHeroCard(
-              context,
-              isSelected: isSelected,
-              onTap: () => settingsController.setBackgroundColor(color),
-              child: Container(color: color),
-            );
-          }),
         ],
       ),
     );

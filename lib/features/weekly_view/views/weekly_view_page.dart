@@ -130,92 +130,103 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: statusBarStyle,
-      child: Scaffold(
-        resizeToAvoidBottomInset: false,
-        backgroundColor: Colors.transparent,
-        body: GestureDetector(
-          onTap: () => FocusScope.of(context).unfocus(),
-          child: Container(
-            decoration: BoxDecoration(color: backgroundColor),
-            child: Stack(
-              children: [
-                // Dark Mode Default Background (Only if user hasn't customized)
-                if (isDarkMode &&
-                    widget.settingsController?.wallpaperType == 'image' &&
-                    widget.settingsController?.wallpaperPath ==
-                        'assets/pattern.jpg')
-                  Positioned.fill(
-                    child: Opacity(
-                      opacity: 0.2, // Default opacity for dark mode bg
-                      child: Image.asset(
-                        'assets/darkmode bg.jpg',
-                        fit: BoxFit.cover,
+      child: Stack(
+        children: [
+          // 1. Fixed Background Layer (Ignores Keyboard)
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(color: backgroundColor),
+              child: Stack(
+                children: [
+                  // Dark Mode Default Background (Only if user hasn't customized)
+                  if (isDarkMode &&
+                      widget.settingsController?.wallpaperType == 'image' &&
+                      widget.settingsController?.wallpaperPath ==
+                          'assets/pattern.jpg')
+                    Positioned.fill(
+                      child: Opacity(
+                        opacity: 0.2, // Default opacity for dark mode bg
+                        child: Image.asset(
+                          'assets/darkmode bg.jpg',
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    )
+                  // User Selected Wallpaper (Image)
+                  else if (widget.settingsController?.wallpaperType ==
+                          'image' &&
+                      widget.settingsController?.wallpaperPath != null)
+                    Positioned.fill(
+                      child: Opacity(
+                        opacity: widget.settingsController!.isAssetWallpaper
+                            ? 0.2
+                            : widget.settingsController!.wallpaperOpacity,
+                        child: widget.settingsController!.isAssetWallpaper
+                            ? Image.asset(
+                                widget.settingsController!.wallpaperPath!,
+                                fit: BoxFit.cover,
+                              )
+                            : Image.file(
+                                File(widget.settingsController!.wallpaperPath!),
+                                fit: BoxFit.cover,
+                              ),
                       ),
                     ),
-                  )
-                // User Selected Wallpaper (Image)
-                else if (widget.settingsController?.wallpaperType == 'image' &&
-                    widget.settingsController?.wallpaperPath != null)
-                  Positioned.fill(
-                    child: Opacity(
-                      opacity: widget.settingsController!.isAssetWallpaper
-                          ? 0.2
-                          : widget.settingsController!.wallpaperOpacity,
-                      child: widget.settingsController!.isAssetWallpaper
-                          ? Image.asset(
-                              widget.settingsController!.wallpaperPath!,
-                              fit: BoxFit.cover,
-                            )
-                          : Image.file(
-                              File(widget.settingsController!.wallpaperPath!),
-                              fit: BoxFit.cover,
-                            ),
-                    ),
-                  ),
-                SafeArea(
-                  child: Directionality(
-                    textDirection: TextDirection.rtl,
-                    child: Column(
-                      children: [
-                        Expanded(child: _buildUnifiedChatView()),
-                        if (widget.settingsController != null)
-                          SlideableTaskInput(
-                            dayOfWeek: 'النهاردة',
-                            onTaskAdded: addTaskToCurrentDay,
-                            onTaskRestored: (taskId, dateKey) =>
-                                restoreTask(taskId),
-                            onVoiceTaskAdded: addVoiceTaskToCurrentDay,
-                            settingsController: widget.settingsController!,
-                            onSearchTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => SearchScreen(
-                                    taskController: taskController,
-                                  ),
-                                ),
-                              );
-                            },
-                            onFilterTap: () => _showFilterBottomSheet(),
-                            currentFilter: _currentFilter,
-                          )
-                        else
-                          ChatInput(
-                            dayOfWeek: 'النهاردة',
-                            onTaskAdded: addTaskToCurrentDay,
-                            onTaskRestored: (taskId, dateKey) =>
-                                restoreTask(taskId),
-                            onVoiceTaskAdded: addVoiceTaskToCurrentDay,
-                            hasActiveFilters: _currentFilter.hasActiveFilters,
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
+
+          // 2. Resizable Content Layer (Adjusts to Keyboard)
+          Scaffold(
+            resizeToAvoidBottomInset:
+                true, // Native resize enables KB avoidance
+            backgroundColor: Colors.transparent, // Let background show through
+            body: GestureDetector(
+              onTap: () => FocusScope.of(context).unfocus(),
+              child: SafeArea(
+                child: Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: Column(
+                    children: [
+                      Expanded(child: _buildUnifiedChatView()),
+                      if (widget.settingsController != null)
+                        SlideableTaskInput(
+                          dayOfWeek: 'النهاردة',
+                          onTaskAdded: addTaskToCurrentDay,
+                          onTaskRestored: (taskId, dateKey) =>
+                              restoreTask(taskId),
+                          onVoiceTaskAdded: addVoiceTaskToCurrentDay,
+                          settingsController: widget.settingsController!,
+                          onSearchTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => SearchScreen(
+                                  taskController: taskController,
+                                ),
+                              ),
+                            );
+                          },
+                          onFilterTap: () => _showFilterBottomSheet(),
+                          currentFilter: _currentFilter,
+                        )
+                      else
+                        ChatInput(
+                          dayOfWeek: 'النهاردة',
+                          onTaskAdded: addTaskToCurrentDay,
+                          onTaskRestored: (taskId, dateKey) =>
+                              restoreTask(taskId),
+                          onVoiceTaskAdded: addVoiceTaskToCurrentDay,
+                          hasActiveFilters: _currentFilter.hasActiveFilters,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

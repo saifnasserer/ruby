@@ -104,6 +104,8 @@ class Task {
 
   final DateTime? deadlineDate;
   final String? audioPath;
+  final List<double>?
+  waveformData; // Amplitude values for audio waveform visualization
 
   // Map of date keys to progress notes for deadline tasks
   // e.g., {"2026-01-07": "Made good progress", "2026-01-08": "Almost done"}
@@ -127,6 +129,7 @@ class Task {
     this.subtasks = const [],
     this.deadlineDate,
     this.audioPath,
+    this.waveformData,
     this.dailyProgress = const {},
   });
 
@@ -148,6 +151,7 @@ class Task {
     List<Subtask>? subtasks,
     Object? deadlineDate,
     String? audioPath,
+    List<double>? waveformData,
     Map<String, String>? dailyProgress,
   }) {
     return Task(
@@ -184,6 +188,7 @@ class Task {
                 ? deadlineDate.value as DateTime?
                 : deadlineDate as DateTime?),
       audioPath: audioPath ?? this.audioPath,
+      waveformData: waveformData ?? this.waveformData,
       dailyProgress: dailyProgress ?? this.dailyProgress,
     );
   }
@@ -208,6 +213,7 @@ class Task {
       'subtasks': subtasks.map((s) => s.toJson()).toList(),
       'deadlineDate': deadlineDate?.toIso8601String(),
       'audioPath': audioPath,
+      'waveformData': waveformData,
       'dailyProgress': dailyProgress,
     };
   }
@@ -243,6 +249,7 @@ class Task {
           ? DateTime.parse(json['deadlineDate'] as String)
           : null,
       audioPath: json['audioPath'] as String?,
+      waveformData: (json['waveformData'] as List<dynamic>?)?.cast<double>(),
       dailyProgress:
           (json['dailyProgress'] as Map<String, dynamic>?)?.map(
             (key, value) => MapEntry(key, value.toString()),

@@ -4,7 +4,7 @@ import '../../../../core/theme/ruby_theme.dart';
 import '../../../../responsive.dart';
 import '../../../../core/models/task.dart';
 import '../../../../features/task_management/controllers/task_controller.dart';
-import 'task_detail_card.dart';
+// DISABLED: import 'task_detail_card.dart';
 
 class TaskDetailTitleAndAudio extends StatefulWidget {
   final Task task;
@@ -28,9 +28,10 @@ class TaskDetailTitleAndAudio extends StatefulWidget {
 class _TaskDetailTitleAndAudioState extends State<TaskDetailTitleAndAudio>
     with SingleTickerProviderStateMixin {
   late AnimationController _scaleAnimationController;
+  late Animation<double> _scaleAnimation;
   final AudioPlayer _audioPlayer = AudioPlayer();
   late TextEditingController _taskTextController;
-  late TextEditingController _transcriptionController;
+  // DISABLED: late TextEditingController _transcriptionController;
 
   bool _isEditingTaskText = false;
   bool _isPlaying = false;
@@ -42,14 +43,18 @@ class _TaskDetailTitleAndAudioState extends State<TaskDetailTitleAndAudio>
     super.initState();
     _scaleAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 150),
-      lowerBound: 0.95,
-      upperBound: 1.0,
-      value: 1.0,
+      duration: const Duration(milliseconds: 100),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(
+        parent: _scaleAnimationController,
+        curve: Curves.easeInOut,
+      ),
     );
 
     _taskTextController = TextEditingController(text: widget.task.text);
-    _transcriptionController = TextEditingController(text: widget.task.text);
+    // DISABLED: _transcriptionController = TextEditingController(text: widget.task.text);
 
     _setupAudioPlayer();
     _initAudioSource();
@@ -60,12 +65,13 @@ class _TaskDetailTitleAndAudioState extends State<TaskDetailTitleAndAudio>
     _scaleAnimationController.dispose();
     _audioPlayer.dispose();
     _taskTextController.dispose();
-    _transcriptionController.dispose();
+    // DISABLED: _transcriptionController.dispose();
     super.dispose();
   }
 
   Future<void> _initAudioSource() async {
     if (widget.task.audioPath != null) {
+      await _audioPlayer.setVolume(1.0); // Set to 100% volume
       await _audioPlayer.setSource(DeviceFileSource(widget.task.audioPath!));
     }
   }
@@ -157,48 +163,84 @@ class _TaskDetailTitleAndAudioState extends State<TaskDetailTitleAndAudio>
           IconButton(
             icon: Icon(
               _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-              color: RubyTheme.primary(context),
+              color: RubyTheme.pureWhite,
             ),
             onPressed: _toggleAudio,
             iconSize: 40,
           ),
           Expanded(
-            child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                activeTrackColor: RubyTheme.primary(context),
-                inactiveTrackColor: RubyTheme.textSecondary(
-                  context,
-                ).withOpacity(0.2),
-                thumbColor: RubyTheme.primary(context),
-                trackHeight: 4.0,
-              ),
-              child: Slider(
-                value: _position.inMilliseconds.toDouble(),
-                max: _duration.inMilliseconds.toDouble() > 0
-                    ? _duration.inMilliseconds.toDouble()
-                    : 1.0,
-                onChanged: (value) {
-                  setState(() {
-                    _position = Duration(milliseconds: value.toInt());
-                  });
-                },
-                onChangeEnd: (value) async {
-                  final position = Duration(milliseconds: value.toInt());
-                  try {
-                    await _audioPlayer.seek(position);
-                  } catch (e) {
-                    print('Error seeking: $e');
-                  }
-                },
+            child: Container(
+              height: 40,
+              child: Stack(
+                children: [
+                  // Waveform visualization
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _WaveformPainter(
+                        progress: _duration.inMilliseconds > 0
+                            ? _position.inMilliseconds /
+                                  _duration.inMilliseconds
+                            : 0.0,
+                        activeColor: RubyTheme.pureWhite,
+                        inactiveColor: RubyTheme.textSecondary(
+                          context,
+                        ).withOpacity(0.2),
+                      ),
+                    ),
+                  ),
+                  // Invisible slider for seeking (overlaid on waveform)
+                  Positioned.fill(
+                    child: Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          activeTrackColor: Colors.transparent,
+                          inactiveTrackColor: Colors.transparent,
+                          thumbColor: Colors.transparent,
+                          thumbShape: RoundSliderThumbShape(
+                            enabledThumbRadius: 0,
+                          ),
+                          overlayShape: RoundSliderOverlayShape(
+                            overlayRadius: 0,
+                          ),
+                          trackHeight: 40.0,
+                        ),
+                        child: Slider(
+                          value: _position.inMilliseconds.toDouble(),
+                          max: _duration.inMilliseconds.toDouble() > 0
+                              ? _duration.inMilliseconds.toDouble()
+                              : 1.0,
+                          onChanged: (value) {
+                            setState(() {
+                              _position = Duration(milliseconds: value.toInt());
+                            });
+                          },
+                          onChangeEnd: (value) async {
+                            final position = Duration(
+                              milliseconds: value.toInt(),
+                            );
+                            try {
+                              await _audioPlayer.seek(position);
+                            } catch (e) {
+                              print('Error seeking: $e');
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
+          SizedBox(width: 8),
           Text(
-            '${_position.inMinutes}:${(_position.inSeconds % 60).toString().padLeft(2, '0')}',
-            style: RubyTheme.caption(context).copyWith(
-              color: RubyTheme.primary(context),
-              fontWeight: FontWeight.bold,
-            ),
+            _isPlaying
+                ? '${_position.inMinutes}:${(_position.inSeconds % 60).toString().padLeft(2, '0')}'
+                : '${_duration.inMinutes}:${(_duration.inSeconds % 60).toString().padLeft(2, '0')}',
+            style: RubyTheme.caption(
+              context,
+            ).copyWith(color: RubyTheme.pureWhite, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -209,10 +251,14 @@ class _TaskDetailTitleAndAudioState extends State<TaskDetailTitleAndAudio>
   Widget build(BuildContext context) {
     return Column(
       children: [
-        ScaleTransition(
-          scale: _scaleAnimationController,
+        AnimatedBuilder(
+          animation: _scaleAnimationController,
+          builder: (context, child) {
+            return Transform.scale(scale: _scaleAnimation.value, child: child);
+          },
           child: GestureDetector(
             onTap: () async {
+              // Play bounce animation
               await _scaleAnimationController.forward();
               await _scaleAnimationController.reverse();
               _toggleTaskCompletion();
@@ -401,38 +447,96 @@ class _TaskDetailTitleAndAudioState extends State<TaskDetailTitleAndAudio>
           ),
         ),
 
-        // Transcription Card (for Audio tasks)
-        if (widget.task.audioPath != null) ...[
-          SizedBox(height: Responsive.space(context, size: Space.large)),
-          TaskDetailCard(
-            title: 'التاسك',
-            children: [
-              TextField(
-                controller: _transcriptionController,
-                maxLines: null,
-                textDirection: TextDirection.rtl,
-                style: RubyTheme.bodyLarge(context).copyWith(height: 1.6),
-                decoration: InputDecoration(
-                  hintText: 'تفريغ النص...',
-                  hintStyle: RubyTheme.bodyLarge(
-                    context,
-                  ).copyWith(color: RubyTheme.mediumGray),
-                  border: InputBorder.none,
-                ),
-                onChanged: (value) {
-                  // Save on type
-                  widget.taskController.updateTaskText(
-                    widget.dateKey,
-                    widget.task.id,
-                    value,
-                  );
-                  widget.onTaskUpdated();
-                },
-              ),
-            ],
-          ),
-        ],
+        // DISABLED: Transcription Card (for Audio tasks)
+        // if (widget.task.audioPath != null) ...[
+        //   SizedBox(height: Responsive.space(context, size: Space.large)),
+        //   TaskDetailCard(
+        //     title: 'التاسك',
+        //     children: [
+        //       TextField(
+        //         controller: _transcriptionController,
+        //         maxLines: null,
+        //         textDirection: TextDirection.rtl,
+        //         style: RubyTheme.bodyLarge(context).copyWith(height: 1.6),
+        //         decoration: InputDecoration(
+        //           hintText: 'تفريغ النص...',
+        //           hintStyle: RubyTheme.bodyLarge(
+        //             context,
+        //           ).copyWith(color: RubyTheme.mediumGray),
+        //           border: InputBorder.none,
+        //         ),
+        //         onChanged: (value) {
+        //           // Save on type
+        //           widget.taskController.updateTaskText(
+        //             widget.dateKey,
+        //             widget.task.id,
+        //             value,
+        //           );
+        //           widget.onTaskUpdated();
+        //         },
+        //       ),
+        //     ],
+        //   ),
+        // ],
       ],
     );
+  }
+}
+
+// Custom painter for audio waveform visualization
+class _WaveformPainter extends CustomPainter {
+  final double progress;
+  final Color activeColor;
+  final Color inactiveColor;
+  final List<double>? waveformData; // Real waveform data from task
+
+  _WaveformPainter({
+    required this.progress,
+    required this.activeColor,
+    required this.inactiveColor,
+    this.waveformData,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final barCount = waveformData?.length ?? 40;
+    final barWidth = size.width / (barCount * 2 - 1);
+    final centerY = size.height / 2;
+
+    for (int i = 0; i < barCount; i++) {
+      final x = i * barWidth * 2;
+      final barProgress = i / barCount;
+      final isActive = barProgress <= progress;
+
+      final paint = Paint()
+        ..color = isActive ? activeColor : inactiveColor
+        ..strokeWidth = barWidth
+        ..strokeCap = StrokeCap.round;
+
+      // Use real waveform data if available, otherwise use pseudo-random pattern
+      final double barHeight;
+      if (waveformData != null && i < waveformData!.length) {
+        // Use real amplitude data (0.0 to 1.0)
+        barHeight = size.height * waveformData![i];
+      } else {
+        // Fallback to pseudo-random pattern
+        final baseHeight = 0.3 + (i % 3) * 0.2 + (i % 5) * 0.15;
+        barHeight = size.height * baseHeight.clamp(0.2, 0.9);
+      }
+
+      canvas.drawLine(
+        Offset(x, centerY - barHeight / 2),
+        Offset(x, centerY + barHeight / 2),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_WaveformPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.activeColor != activeColor ||
+        oldDelegate.inactiveColor != inactiveColor ||
+        oldDelegate.waveformData != waveformData;
   }
 }

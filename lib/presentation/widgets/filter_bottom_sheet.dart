@@ -55,22 +55,24 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                 Responsive.space(context, size: Space.large),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text('تصفية التاسكات', style: RubyTheme.heading1(context)),
                   if (_filter.hasActiveFilters)
-                    TextButton(
-                      onPressed: () {
-                        setState(() {
-                          _filter = _filter.reset();
-                        });
-                      },
-                      child: Text(
-                        'إعادة تعيين',
-                        style: RubyTheme.bodyMedium(
-                          context,
-                        ).copyWith(color: RubyTheme.sapphire),
-                      ),
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: Responsive.space(context, size: Space.large),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close, color: RubyTheme.sapphire),
+                          onPressed: () {
+                            setState(() {
+                              _filter = _filter.reset();
+                            });
+                          },
+                        ),
+                      ],
                     ),
                 ],
               ),

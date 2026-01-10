@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/ruby_theme.dart';
 import '../../../../core/models/task.dart';
+import '../../../../core/utils/date_formatter.dart';
 import '../../../../presentation/widgets/task_bubble.dart';
 import '../../../../responsive.dart';
 import '../../../../presentation/widgets/date_separator.dart';
@@ -75,7 +76,9 @@ class UnifiedChatView extends StatelessWidget {
     // Group tasks by their storage date (dayOfWeek field)
     final Map<String, List<Task>> groupedByDate = {};
     for (var task in tasks) {
-      final itemDateKey = task.dayOfWeek;
+      // Use the task's actual creation date to determine the group
+      // This handles both old tasks (with Arabic dayOfWeek) and new tasks (with date keys)
+      final itemDateKey = DateFormatter.getDateKey(task.createdAt);
       groupedByDate.putIfAbsent(itemDateKey, () => []);
       groupedByDate[itemDateKey]!.add(task);
     }
@@ -100,7 +103,16 @@ class UnifiedChatView extends StatelessWidget {
 
         final now = DateTime.now();
         final today = DateTime(now.year, now.month, now.day);
-        final groupDate = DateTime.parse(groupDateKey);
+
+        // Safely parse groupDateKey - it might be in Arabic format or invalid
+        DateTime groupDate;
+        try {
+          groupDate = DateTime.parse(groupDateKey);
+        } catch (e) {
+          // If parsing fails (e.g., Arabic day name like "الجمعة"), use today's date
+          groupDate = today;
+        }
+
         final isToday =
             DateTime(groupDate.year, groupDate.month, groupDate.day) == today;
 

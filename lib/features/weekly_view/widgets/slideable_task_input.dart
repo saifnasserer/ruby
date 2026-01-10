@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import '../../../core/theme/ruby_theme.dart';
 import '../../../core/models/task_filter.dart';
 import '../../../presentation/widgets/chat_input.dart';
@@ -9,7 +10,7 @@ class SlideableTaskInput extends StatefulWidget {
   final String dayOfWeek;
   final Function(String) onTaskAdded;
   final Function(String, String)? onTaskRestored;
-  final Function(String, String?)? onVoiceTaskAdded;
+  final Function(String, List<double>?)? onVoiceTaskAdded;
 
   final SettingsController settingsController;
   final VoidCallback? onSearchTap;
@@ -35,22 +36,18 @@ class SlideableTaskInput extends StatefulWidget {
 class _SlideableTaskInputState extends State<SlideableTaskInput>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
-  late Animation<double> _animation;
   double _dragOffset = 0.0;
   final double _actionThreshold = 0.4; // 40% swipe to snap
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _animation = Tween<double>(begin: 0, end: 0).animate(_animationController);
+    // Unbounded to allow physics simulations outside 0.0-1.0 range
+    _animationController = AnimationController.unbounded(vsync: this);
 
     _animationController.addListener(() {
       setState(() {
-        _dragOffset = _animation.value;
+        _dragOffset = _animationController.value;
       });
     });
   }
@@ -62,19 +59,21 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
   }
 
   void _handleDragUpdate(DragUpdateDetails details, double maxWidth) {
-    if (_animationController.isAnimating) return;
+    if (_animationController.isAnimating) {
+      _animationController.stop();
+    }
 
     // RTL: Dragging RIGHT (positive delta) reveals LEFT actions
     // So we add the delta to the offset
     double newOffset = _dragOffset + details.primaryDelta!;
 
-    // STRICT CLAMPING: 0 to maxWidth
-    // 0 = Closed (Input visible)
-    // maxWidth = Open (Actions visible)
+    // STRICT CLAMPING: 0 to maxWidth during drag
     newOffset = newOffset.clamp(0.0, maxWidth);
 
     setState(() {
       _dragOffset = newOffset;
+      // Sync controller so simulation starts from current position
+      _animationController.value = _dragOffset;
     });
   }
 
@@ -99,16 +98,24 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
       }
     }
 
-    _animateTo(targetOffset);
+    _animateTo(targetOffset, velocity);
   }
 
-  void _animateTo(double target) {
-    _animation = Tween<double>(begin: _dragOffset, end: target).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+  void _animateTo(double target, [double velocity = 0]) {
+    final description = SpringDescription(
+      mass: 1,
+      stiffness: 150,
+      damping: 25,
+    ); // Critical damping
+
+    final simulation = SpringSimulation(
+      description,
+      _dragOffset,
+      target,
+      velocity,
     );
 
-    _animationController.reset();
-    _animationController.forward();
+    _animationController.animateWith(simulation);
   }
 
   @override
@@ -126,6 +133,9 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
           builder: (context, constraints) {
             final maxWidth = constraints.maxWidth;
 
+            // Clamp value for display to prevent visual gaps/overlap if physics overshoots
+            final visualOffset = _dragOffset.clamp(0.0, maxWidth);
+
             return GestureDetector(
               onHorizontalDragUpdate: (details) =>
                   _handleDragUpdate(details, maxWidth),
@@ -133,13 +143,18 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
                   _handleDragEnd(details, maxWidth),
               child: Stack(
                 children: [
-                  // Layer 1: Background Actions (Always visible underneath)
-                  Positioned.fill(child: _buildQuickActionsRow(context)),
+                  // Layer 1: Background Actions (Slides in from left)
+                  Positioned.fill(
+                    child: Transform.translate(
+                      offset: Offset(visualOffset - maxWidth, 0),
+                      child: _buildQuickActionsRow(context),
+                    ),
+                  ),
 
                   // Layer 2: Foreground Input (Sliding)
                   // We use Transform to slide it right
                   Transform.translate(
-                    offset: Offset(_dragOffset, 0),
+                    offset: Offset(visualOffset, 0),
                     child: Container(
                       // Ensure opaque background to hide actions when closed
                       color: RubyTheme.surface(context),
@@ -187,7 +202,7 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
                   ),
                 ),
               );
-              _animateTo(0); // Return to input
+              _animateTo(0, 0); // Return to input
             },
           ),
           SizedBox(width: 15), // Reduced Spacing (Closer)
@@ -198,7 +213,7 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
             label: 'بحث',
             onTap: () {
               widget.onSearchTap?.call();
-              _animateTo(0);
+              _animateTo(0, 0);
             },
           ),
           SizedBox(width: 15),
@@ -213,7 +228,7 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
                 label: 'تصفية',
                 onTap: () {
                   widget.onFilterTap?.call();
-                  _animateTo(0);
+                  _animateTo(0, 0);
                 },
               ),
               if (widget.currentFilter?.hasActiveFilters ?? false)
