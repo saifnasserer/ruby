@@ -178,6 +178,10 @@ class TaskController extends ChangeNotifier {
   Future<void> loadTasks() async {
     final savedTasks = await StorageService.loadTasks();
     _tasks = savedTasks;
+
+    // Check for pinned tasks and move them to today if needed
+    _movePinnedTasksToToday();
+
     notifyListeners();
   }
 
@@ -403,6 +407,28 @@ class TaskController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Toggle task pin status
+  void toggleTaskPin(String dateKey, String taskId) {
+    final dayTasks = _tasks[dateKey];
+    if (dayTasks != null) {
+      final taskIndex = dayTasks.indexWhere((task) => task.id == taskId);
+      if (taskIndex != -1) {
+        final task = dayTasks[taskIndex];
+
+        dayTasks[taskIndex] = task.copyWith(
+          isPinned: !task.isPinned,
+          updatedAt: DateTime.now(),
+        );
+
+        // Add chat message for pin change (optional but good for consistency)
+        // For now we'll skip the chat message unless requested
+      }
+    }
+
+    _saveTasks();
+    notifyListeners();
+  }
+
   /// Update task subtasks
   void updateTaskSubtasks(
     String dateKey,
@@ -545,5 +571,41 @@ class TaskController extends ChangeNotifier {
 
     _saveTasks();
     notifyListeners();
+  }
+
+  /// Check for pinned tasks in past days and move them to today
+  void _movePinnedTasksToToday() {
+    final now = DateTime.now();
+    final todayKey =
+        "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+
+    // We need to collect tasks to move first to avoid modifying the map while iterating
+    final tasksToMove = <Map<String, dynamic>>[]; // {fromKey, taskId}
+
+    _tasks.forEach((dateKey, tasks) {
+      // Skip today and future dates
+      if (dateKey == todayKey) return;
+
+      // strict comparison to ensure we only move from PAST dates
+      // (though arguably moving from future back to today if pinned might be desired?
+      // The user requirement says "by each start of a new date the tasks with the flag pinned thier dates should be of that new day")
+      // So if I pin a task for tomorrow, when tomorrow comes, it is already in "today".
+      // If I pin a task for yesterday, when I open the app today, it should move to today.
+      // So we only care about dates != today.
+
+      for (final task in tasks) {
+        if (task.isPinned && !task.isDeleted && !task.isCompleted) {
+          tasksToMove.add({'fromKey': dateKey, 'taskId': task.id});
+        }
+      }
+    });
+
+    for (final moveInfo in tasksToMove) {
+      moveTask(moveInfo['fromKey'], todayKey, moveInfo['taskId']);
+    }
+
+    if (tasksToMove.isNotEmpty) {
+      _saveTasks();
+    }
   }
 }

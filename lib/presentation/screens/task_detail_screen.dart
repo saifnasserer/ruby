@@ -169,6 +169,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ),
         actions: [
           IconButton(
+            icon: Icon(
+              (taskToDisplay.isPinned)
+                  ? Icons.push_pin
+                  : Icons.push_pin_outlined,
+              color: RubyTheme.sapphire,
+            ),
+            onPressed: () {
+              widget.taskController.toggleTaskPin(
+                _currentDateKey,
+                widget.task.id,
+              );
+              _onTaskUpdated();
+            },
+          ),
+          IconButton(
             icon: Icon(Icons.delete_outline, color: RubyTheme.priorityHigh),
             onPressed: () => _showDeleteConfirmationDialog(context),
           ),

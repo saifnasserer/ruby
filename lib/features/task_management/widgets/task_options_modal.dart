@@ -45,7 +45,6 @@ class TaskOptionsModal extends StatelessWidget {
                 ).copyWith(color: RubyTheme.charcoal),
               ),
             ),
-            SizedBox(height: RubyTheme.spacingL(context)),
 
             // Move option
             if (onMove != null)

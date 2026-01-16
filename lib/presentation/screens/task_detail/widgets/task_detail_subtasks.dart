@@ -397,7 +397,7 @@ class _TaskDetailSubtasksState extends State<TaskDetailSubtasks> {
                   behavior: HitTestBehavior.opaque,
                   onTap: () => _toggleSubtask(index),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Checkbox(
                         value: subtask.isCompleted,
@@ -408,7 +408,6 @@ class _TaskDetailSubtasksState extends State<TaskDetailSubtasks> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SizedBox(height: 12),
                             Text(
                               subtask.text,
                               style: RubyTheme.bodyMedium(context).copyWith(

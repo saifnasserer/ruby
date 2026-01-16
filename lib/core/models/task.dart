@@ -110,6 +110,7 @@ class Task {
   // Map of date keys to progress notes for deadline tasks
   // e.g., {"2026-01-07": "Made good progress", "2026-01-08": "Almost done"}
   final Map<String, String> dailyProgress;
+  final bool isPinned;
 
   Task({
     required this.id,
@@ -131,6 +132,7 @@ class Task {
     this.audioPath,
     this.waveformData,
     this.dailyProgress = const {},
+    this.isPinned = false,
   });
 
   Task copyWith({
@@ -153,6 +155,7 @@ class Task {
     String? audioPath,
     List<double>? waveformData,
     Map<String, String>? dailyProgress,
+    bool? isPinned,
   }) {
     return Task(
       id: id ?? this.id,
@@ -190,6 +193,7 @@ class Task {
       audioPath: audioPath ?? this.audioPath,
       waveformData: waveformData ?? this.waveformData,
       dailyProgress: dailyProgress ?? this.dailyProgress,
+      isPinned: isPinned ?? this.isPinned,
     );
   }
 
@@ -215,6 +219,7 @@ class Task {
       'audioPath': audioPath,
       'waveformData': waveformData,
       'dailyProgress': dailyProgress,
+      'isPinned': isPinned,
     };
   }
 
@@ -255,6 +260,7 @@ class Task {
             (key, value) => MapEntry(key, value.toString()),
           ) ??
           {},
+      isPinned: json['isPinned'] ?? false,
     );
   }
 }
