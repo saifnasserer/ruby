@@ -507,7 +507,7 @@ class TaskController extends ChangeNotifier {
         final task = dayTasks[taskIndex];
 
         dayTasks[taskIndex] = task.copyWith(
-          deadlineDate: deadline == null ? const NullableValue(null) : deadline,
+          deadlineDate: deadline ?? const NullableValue(null),
           updatedAt: DateTime.now(),
         );
       }
@@ -534,13 +534,19 @@ class TaskController extends ChangeNotifier {
 
         if (dateParts.length == 3) {
           try {
+            // If task is pinned, set time to 00:01:00 to be at top of list
+            // Otherwise keep original time
+            final hour = task.isPinned ? 0 : task.createdAt.hour;
+            final minute = task.isPinned ? 1 : task.createdAt.minute;
+            final second = task.isPinned ? 0 : task.createdAt.second;
+
             newCreatedAt = DateTime(
               int.parse(dateParts[0]),
               int.parse(dateParts[1]),
               int.parse(dateParts[2]),
-              task.createdAt.hour,
-              task.createdAt.minute,
-              task.createdAt.second,
+              hour,
+              minute,
+              second,
             );
           } catch (e) {
             print('Error parsing date: $e');

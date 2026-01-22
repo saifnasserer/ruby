@@ -467,7 +467,7 @@ class _TaskDetailSubtasksState extends State<TaskDetailSubtasks> {
                 ),
               ),
             );
-          }).toList(),
+          }),
         ],
       ],
     );

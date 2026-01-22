@@ -169,7 +169,7 @@ class _TaskDetailTitleAndAudioState extends State<TaskDetailTitleAndAudio>
             iconSize: 40,
           ),
           Expanded(
-            child: Container(
+            child: SizedBox(
               height: 40,
               child: Stack(
                 children: [
@@ -494,7 +494,6 @@ class _WaveformPainter extends CustomPainter {
     required this.progress,
     required this.activeColor,
     required this.inactiveColor,
-    this.waveformData,
   });
 
   @override

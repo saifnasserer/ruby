@@ -60,8 +60,8 @@ class LocalNotificationService {
         content: NotificationContent(
           id: _morningNotificationId,
           channelKey: _channelKey,
-          title: 'صباح الخير! 🌟',
-          body: 'ابدأ يومك بكتابة تاسكاتك النهاردةية واجعل كل يوم أكثر إنتاجية',
+          title: 'صاحي يا ملك؟ 🌟',
+          body: 'يالا بينا نكسر الدنيا النهاردة! رتب يومك وابدأ صح',
           category: NotificationCategory.Reminder,
           wakeUpScreen: true,
           icon: 'resource://mipmap/ic_notification',
@@ -89,8 +89,8 @@ class LocalNotificationService {
         content: NotificationContent(
           id: _eveningNotificationId,
           channelKey: _channelKey,
-          title: 'كيف كان يومك؟ 🌙',
-          body: 'تأمل في إنجازاتك النهاردةية وخطط لغد أفضل',
+          title: 'عملت ايه النهاردة؟ 🌙',
+          body: 'طمنا عليك يا ملك، خلصت اللي وراك ولا لسه؟',
           category: NotificationCategory.Reminder,
           wakeUpScreen: false,
           icon: 'resource://mipmap/ic_notification',

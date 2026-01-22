@@ -44,9 +44,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
     // Load subtask draft
     final draft = widget.taskController.getSubtaskDraft(widget.task.id);
-    if (draft != null) {
-      _subtaskController.text = draft;
-    }
+    _subtaskController.text = draft;
   }
 
   @override
