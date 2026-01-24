@@ -177,6 +177,7 @@ class _TaskDetailTitleAndAudioState extends State<TaskDetailTitleAndAudio>
                   Positioned.fill(
                     child: CustomPaint(
                       painter: _WaveformPainter(
+                        waveformData: widget.task.waveformData,
                         progress: _duration.inMilliseconds > 0
                             ? _position.inMilliseconds /
                                   _duration.inMilliseconds
@@ -494,6 +495,7 @@ class _WaveformPainter extends CustomPainter {
     required this.progress,
     required this.activeColor,
     required this.inactiveColor,
+    this.waveformData,
   });
 
   @override

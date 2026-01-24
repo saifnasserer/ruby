@@ -9,7 +9,7 @@ class LocalNotificationService {
 
   // Notification channel configuration
   static const String _channelKey = 'ruby_daily_reminder';
-  static const String _channelName = 'Ruby Daily Reminder';
+  static const String _channelName = 'Bakiza Daily Reminder';
   static const String _channelDescription =
       'Daily motivation to start your day with tasks';
 
