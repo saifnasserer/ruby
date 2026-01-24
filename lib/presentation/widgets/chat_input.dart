@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/ruby_theme.dart';
-import '../../core/services/audio_recorder_service.dart';
+// import '../../core/services/audio_recorder_service.dart';
 import '../../features/settings/controllers/settings_controller.dart';
 
 class ChatInput extends StatefulWidget {
@@ -28,9 +28,9 @@ class ChatInput extends StatefulWidget {
 class _ChatInputState extends State<ChatInput> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  final AudioRecorderService _audioRecorderService = AudioRecorderService();
+  // final AudioRecorderService _audioRecorderService = AudioRecorderService();
   bool _isTyping = false;
-  bool _isRecording = false;
+  // bool _isRecording = false;
 
   @override
   void initState() {
@@ -46,7 +46,7 @@ class _ChatInputState extends State<ChatInput> {
   void dispose() {
     _controller.dispose();
     _focusNode.dispose();
-    _audioRecorderService.dispose();
+    // _audioRecorderService.dispose();
     super.dispose();
   }
 
@@ -60,41 +60,41 @@ class _ChatInputState extends State<ChatInput> {
     }
   }
 
-  Future<void> _handleVoiceRecord() async {
-    if (_isRecording) {
-      // Stop recording
-      final result = await _audioRecorderService.stopRecording();
-      setState(() {
-        _isRecording = false;
-      });
-
-      if (result['path'] != null && widget.onVoiceTaskAdded != null) {
-        widget.onVoiceTaskAdded!(
-          result['path']!,
-          result['waveformData'] as List<double>?,
-        );
-      }
-    } else {
-      // Start recording
-      final hasPermission = await _audioRecorderService.hasPermission();
-      if (hasPermission) {
-        final fileName = 'voice_task_${DateTime.now().millisecondsSinceEpoch}';
-        await _audioRecorderService.startRecording(fileName);
-        setState(() {
-          _isRecording = true;
-        });
-      } else {
-        // Handle permission denial
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('يجب السماح بالوصول للميكروفون لتسجيل الصوت'),
-            ),
-          );
-        }
-      }
-    }
-  }
+  // Future<void> _handleVoiceRecord() async {
+  //   if (_isRecording) {
+  //     // Stop recording
+  //     final result = await _audioRecorderService.stopRecording();
+  //     setState(() {
+  //       _isRecording = false;
+  //     });
+  //
+  //     if (result['path'] != null && widget.onVoiceTaskAdded != null) {
+  //       widget.onVoiceTaskAdded!(
+  //         result['path']!,
+  //         result['waveformData'] as List<double>?,
+  //       );
+  //     }
+  //   } else {
+  //     // Start recording
+  //     final hasPermission = await _audioRecorderService.hasPermission();
+  //     if (hasPermission) {
+  //       final fileName = 'voice_task_${DateTime.now().millisecondsSinceEpoch}';
+  //       await _audioRecorderService.startRecording(fileName);
+  //       setState(() {
+  //         _isRecording = true;
+  //       });
+  //     } else {
+  //       // Handle permission denial
+  //       if (mounted) {
+  //         ScaffoldMessenger.of(context).showSnackBar(
+  //           const SnackBar(
+  //             content: Text('يجب السماح بالوصول للميكروفون لتسجيل الصوت'),
+  //           ),
+  //         );
+  //       }
+  //     }
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -112,42 +112,32 @@ class _ChatInputState extends State<ChatInput> {
           child: Row(
             children: [
               // Send/Record button
-              GestureDetector(
-                onTap: _isTyping ? _sendTask : _handleVoiceRecord,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  width: RubyTheme.spacingL(context) * 2,
-                  height: RubyTheme.spacingL(context) * 2,
-                  decoration: BoxDecoration(
-                    color: _isTyping
-                        ? accentColor
-                        : (_isRecording
-                              ? RubyTheme.priorityHigh
-                              : RubyTheme.surfaceVariant(context)),
-                    shape: BoxShape.circle,
-                    boxShadow: (_isTyping || _isRecording)
-                        ? RubyTheme.softShadow(context)
-                        : null,
-                  ),
-                  child: Transform(
-                    alignment: Alignment.center,
-                    transform: Matrix4.identity()..scale(-1.0, 1.0),
-                    child: Icon(
-                      _isTyping
-                          ? Icons.send_rounded
-                          : (_isRecording
-                                ? Icons.stop_rounded
-                                : Icons.mic_rounded),
-                      color: _isTyping || _isRecording
-                          ? RubyTheme.pureWhite
-                          : RubyTheme.textSecondary(context),
-                      size: 20,
+              if (_isTyping) // Only show button when typing
+                GestureDetector(
+                  // onTap: _isTyping ? _sendTask : _handleVoiceRecord,
+                  onTap: _sendTask,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    width: RubyTheme.spacingL(context) * 2,
+                    height: RubyTheme.spacingL(context) * 2,
+                    decoration: BoxDecoration(
+                      color: accentColor,
+                      shape: BoxShape.circle,
+                      boxShadow: RubyTheme.softShadow(context),
+                    ),
+                    child: Transform(
+                      alignment: Alignment.center,
+                      transform: Matrix4.identity()..scale(-1.0, 1.0),
+                      child: Icon(
+                        Icons.send_rounded,
+                        color: RubyTheme.pureWhite,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ),
-              ),
 
-              SizedBox(width: RubyTheme.spacingS(context)),
+              if (_isTyping) SizedBox(width: RubyTheme.spacingS(context)),
 
               // Input field (show "Recording..." when recording)
               Expanded(
@@ -158,9 +148,7 @@ class _ChatInputState extends State<ChatInput> {
                       RubyTheme.radiusLarge(context),
                     ),
                     border: Border.all(
-                      color: _isRecording
-                          ? RubyTheme.priorityHigh
-                          : accentColor.withOpacity(0.3),
+                      color: accentColor.withOpacity(0.3),
                       width: 1.5,
                     ),
                     boxShadow: RubyTheme.softShadow(context),
@@ -171,17 +159,20 @@ class _ChatInputState extends State<ChatInput> {
                     textDirection: TextDirection.rtl,
                     maxLines: null,
                     textInputAction: TextInputAction.newline,
-                    enabled: !_isRecording, // Disable input while recording
+                    // enabled: !_isRecording, // Disable input while recording
                     decoration: InputDecoration(
-                      hintText: _isRecording
-                          ? 'جاري التسجيل...'
-                          : (widget.hasActiveFilters
-                                ? 'اكتب التاسك (فلتر نشط) ...'
-                                : 'اكتب التاسك ...'),
+                      // hintText: _isRecording
+                      //     ? 'جاري التسجيل...'
+                      //     : (widget.hasActiveFilters
+                      //           ? 'اكتب التاسك (فلتر نشط) ...'
+                      //           : 'اكتب التاسك ...'),
+                      hintText: widget.hasActiveFilters
+                          ? 'اكتب التاسك (فلتر نشط) ...'
+                          : 'اكتب التاسك ...',
                       hintStyle: RubyTheme.bodyMedium(context).copyWith(
-                        color: _isRecording
-                            ? RubyTheme.priorityHigh
-                            : RubyTheme.textSecondary(context).withOpacity(0.6),
+                        color: RubyTheme.textSecondary(
+                          context,
+                        ).withOpacity(0.6),
                       ),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.symmetric(

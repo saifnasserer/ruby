@@ -678,290 +678,302 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: SafeArea(
-        child: Directionality(
-          textDirection: TextDirection.rtl,
-          child: Column(
-            children: [
-              // Custom Tab Bar with Today Indicator
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: RubyTheme.spacingM(context),
-                  vertical: RubyTheme.spacingS(context),
-                ),
-                child: SingleChildScrollView(
-                  controller: _tabScrollController,
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: List.generate(_currentWeekDates.length, (index) {
-                      final isSelected = _selectedIndex == index;
-                      final isToday = _isTodayIndex(index);
-                      final date = _currentWeekDates[index];
-                      final displayText = _getDateDisplayText(date, false);
-                      return GestureDetector(
-                        onTap: () {
-                          // Update selected index immediately
-                          setState(() {
-                            _selectedIndex = index;
-                          });
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Column(
+              children: [
+                // Custom Tab Bar with Today Indicator
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: RubyTheme.spacingM(context),
+                    vertical: RubyTheme.spacingS(context),
+                  ),
+                  child: SingleChildScrollView(
+                    controller: _tabScrollController,
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: List.generate(_currentWeekDates.length, (
+                        index,
+                      ) {
+                        final isSelected = _selectedIndex == index;
+                        final isToday = _isTodayIndex(index);
+                        final date = _currentWeekDates[index];
+                        final displayText = _getDateDisplayText(date, false);
+                        return GestureDetector(
+                          onTap: () {
+                            // Update selected index immediately
+                            setState(() {
+                              _selectedIndex = index;
+                            });
 
-                          // Animate page controller first
-                          if (_pageController.hasClients) {
-                            _pageController.animateToPage(
+                            // Animate page controller first
+                            if (_pageController.hasClients) {
+                              _pageController.animateToPage(
+                                index,
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOutCubic,
+                              );
+                            }
+
+                            // Animate tab controller
+                            _tabController.animateTo(
                               index,
                               duration: const Duration(milliseconds: 300),
                               curve: Curves.easeInOutCubic,
                             );
-                          }
 
-                          // Animate tab controller
-                          _tabController.animateTo(
-                            index,
+                            // Scroll to selected tab
+                            _scrollToSelectedTab(index);
+                          },
+                          child: AnimatedContainer(
                             duration: const Duration(milliseconds: 300),
                             curve: Curves.easeInOutCubic,
-                          );
-
-                          // Scroll to selected tab
-                          _scrollToSelectedTab(index);
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOutCubic,
-                          margin: EdgeInsets.symmetric(
-                            horizontal: RubyTheme.spacingXS(context),
-                          ),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: RubyTheme.spacingL(context),
-                            vertical: RubyTheme.spacingM(context) / 2,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: isSelected
-                                ? RubyTheme.rubyGradient
-                                : null,
-                            color: isSelected
-                                ? null
-                                : RubyTheme.surface(context),
-                            borderRadius: BorderRadius.circular(
-                              RubyTheme.radiusLarge(context),
+                            margin: EdgeInsets.symmetric(
+                              horizontal: RubyTheme.spacingXS(context),
                             ),
-                            border: isToday && !isSelected
-                                ? Border.all(
-                                    color: RubyTheme.rubyRed.withOpacity(0.5),
-                                    width: 2,
-                                  )
-                                : null,
-                            boxShadow: isSelected
-                                ? RubyTheme.softShadow(context)
-                                : [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: RubyTheme.spacingL(context),
+                              vertical: RubyTheme.spacingM(context) / 2,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: isSelected
+                                  ? RubyTheme.rubyGradient
+                                  : null,
+                              color: isSelected
+                                  ? null
+                                  : RubyTheme.surface(context),
+                              borderRadius: BorderRadius.circular(
+                                RubyTheme.radiusLarge(context),
+                              ),
+                              border: isToday && !isSelected
+                                  ? Border.all(
+                                      color: RubyTheme.rubyRed.withOpacity(0.5),
+                                      width: 2,
+                                    )
+                                  : null,
+                              boxShadow: isSelected
+                                  ? RubyTheme.softShadow(context)
+                                  : [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                            ),
+                            child: AnimatedScale(
+                              scale: isSelected ? 1.05 : 1.0,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOutCubic,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (isToday)
+                                    AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 300,
+                                      ),
+                                      curve: Curves.easeInOutCubic,
+                                      width: 8,
+                                      height: 8,
+                                      margin: EdgeInsets.only(
+                                        left: RubyTheme.spacingXS(context),
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? RubyTheme.pureWhite
+                                            : RubyTheme.rubyRed,
+                                        shape: BoxShape.circle,
+                                        boxShadow: isSelected
+                                            ? [
+                                                BoxShadow(
+                                                  color: RubyTheme.pureWhite
+                                                      .withOpacity(0.5),
+                                                  blurRadius: 4,
+                                                  spreadRadius: 1,
+                                                ),
+                                              ]
+                                            : null,
+                                      ),
                                     ),
-                                  ],
-                          ),
-                          child: AnimatedScale(
-                            scale: isSelected ? 1.05 : 1.0,
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOutCubic,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (isToday)
-                                  AnimatedContainer(
+                                  AnimatedDefaultTextStyle(
                                     duration: const Duration(milliseconds: 300),
                                     curve: Curves.easeInOutCubic,
-                                    width: 8,
-                                    height: 8,
-                                    margin: EdgeInsets.only(
-                                      left: RubyTheme.spacingXS(context),
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? RubyTheme.pureWhite
-                                          : RubyTheme.rubyRed,
-                                      shape: BoxShape.circle,
-                                      boxShadow: isSelected
-                                          ? [
-                                              BoxShadow(
-                                                color: RubyTheme.pureWhite
-                                                    .withOpacity(0.5),
-                                                blurRadius: 4,
-                                                spreadRadius: 1,
-                                              ),
-                                            ]
-                                          : null,
-                                    ),
+                                    style: RubyTheme.bodyLarge(context)
+                                        .copyWith(
+                                          color: isSelected
+                                              ? RubyTheme.pureWhite
+                                              : RubyTheme.textPrimary(context),
+                                          fontWeight: isSelected
+                                              ? FontWeight.w600
+                                              : FontWeight.w500,
+                                          fontSize: isSelected
+                                              ? RubyTheme.bodyLarge(
+                                                      context,
+                                                    ).fontSize! *
+                                                    1.05
+                                              : RubyTheme.bodyLarge(
+                                                  context,
+                                                ).fontSize,
+                                        ),
+                                    child: Text(displayText),
                                   ),
-                                AnimatedDefaultTextStyle(
-                                  duration: const Duration(milliseconds: 300),
-                                  curve: Curves.easeInOutCubic,
-                                  style: RubyTheme.bodyLarge(context).copyWith(
-                                    color: isSelected
-                                        ? RubyTheme.pureWhite
-                                        : RubyTheme.textPrimary(context),
-                                    fontWeight: isSelected
-                                        ? FontWeight.w600
-                                        : FontWeight.w500,
-                                    fontSize: isSelected
-                                        ? RubyTheme.bodyLarge(
-                                                context,
-                                              ).fontSize! *
-                                              1.05
-                                        : RubyTheme.bodyLarge(context).fontSize,
-                                  ),
-                                  child: Text(displayText),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                ),
-              ),
-
-              // Chat-style Task List
-              Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: _currentWeekDates.length,
-                  itemBuilder: (context, index) {
-                    final date = _currentWeekDates[index];
-                    final dateKey = _getDateKey(date);
-                    final dayTasks = _tasks[dateKey] ?? [];
-                    final isToday = _isTodayIndex(index);
-                    final displayText = _getDateDisplayText(date, true);
-
-                    return AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 400),
-                      switchInCurve: Curves.easeInOutCubic,
-                      switchOutCurve: Curves.easeInOutCubic,
-                      transitionBuilder: (child, animation) {
-                        return SlideTransition(
-                          position:
-                              Tween<Offset>(
-                                begin: const Offset(0.15, 0.0),
-                                end: Offset.zero,
-                              ).animate(
-                                CurvedAnimation(
-                                  parent: animation,
-                                  curve: Curves.easeInOutCubic,
-                                ),
+                                ],
                               ),
-                          child: FadeTransition(
-                            opacity: CurvedAnimation(
-                              parent: animation,
-                              curve: Curves.easeInOutCubic,
                             ),
-                            child: child,
                           ),
                         );
-                      },
-                      child: Column(
-                        key: ValueKey(index), // Important for AnimatedSwitcher
-                        children: [
-                          // Migration button (only show on today if there are unfinished tasks in past days)
-                          // if (isToday && _hasUnfinishedTasksInPastDays())
-                          //   Container(
-                          //     margin: EdgeInsets.symmetric(
-                          //       horizontal: RubyTheme.spacingM(context),
-                          //       vertical: RubyTheme.spacingS(context),
-                          //     ),
-                          //     child: GestureDetector(
-                          //       onTap: _migrateUnfinishedTasksToToday,
-                          //       child: AnimatedContainer(
-                          //         duration: const Duration(milliseconds: 400),
-                          //         curve: Curves.easeInOutCubic,
-                          //         padding: EdgeInsets.symmetric(
-                          //           horizontal: RubyTheme.spacingL(context),
-                          //           vertical: RubyTheme.spacingM(context),
-                          //         ),
-                          //         decoration: BoxDecoration(
-                          //           gradient: RubyTheme.rubyGradient,
-                          //           borderRadius: BorderRadius.circular(
-                          //             RubyTheme.radiusLarge(context),
-                          //           ),
-                          //           boxShadow: RubyTheme.softShadow,
-                          //         ),
-                          //         child: Row(
-                          //           mainAxisAlignment: MainAxisAlignment.center,
-                          //           children: [
-                          //             Icon(
-                          //               Icons.schedule_rounded,
-                          //               color: RubyTheme.pureWhite,
-                          //               size: 20,
-                          //             ),
-                          //             SizedBox(
-                          //               width: RubyTheme.spacingS(context),
-                          //             ),
-                          //             Text(
-                          //               'نقل التاسكات غير المكتملة من الأيام الماضية',
-                          //               style: RubyTheme.bodyLarge(context)
-                          //                   .copyWith(
-                          //                     color: RubyTheme.pureWhite,
-                          //                     fontWeight: FontWeight.w600,
-                          //                   ),
-                          //             ),
-                          //             SizedBox(
-                          //               width: RubyTheme.spacingS(context),
-                          //             ),
-                          //             Container(
-                          //               padding: EdgeInsets.symmetric(
-                          //                 horizontal: RubyTheme.spacingS(
-                          //                   context,
-                          //                 ),
-                          //                 vertical: RubyTheme.spacingXS(
-                          //                   context,
-                          //                 ),
-                          //               ),
-                          //               decoration: BoxDecoration(
-                          //                 color: RubyTheme.pureWhite
-                          //                     .withOpacity(0.2),
-                          //                 borderRadius: BorderRadius.circular(
-                          //                   RubyTheme.radiusMedium(context),
-                          //                 ),
-                          //               ),
-                          //               child: Text(
-                          //                 '${_getUnfinishedTasksCountInPastDays()}',
-                          //                 style: RubyTheme.bodyMedium(context)
-                          //                     .copyWith(
-                          //                       color: RubyTheme.pureWhite,
-                          //                       fontWeight: FontWeight.w700,
-                          //                     ),
-                          //               ),
-                          //             ),
-                          //           ],
-                          //         ),
-                          //       ),
-                          //     ),
-                          //   ),
-
-                          // Chat History + Active Tasks
-                          Expanded(
-                            child: _buildChatHistoryView(
-                              dateKey,
-                              dayTasks,
-                              displayText,
-                              isToday,
-                            ),
-                          ),
-
-                          // Chat input
-                          ChatInput(
-                            dayOfWeek: displayText,
-                            onTaskAdded: _addTaskToCurrentDay,
-                            onTaskRestored: _restoreTask,
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                      }),
+                    ),
+                  ),
                 ),
-              ),
-            ],
+
+                // Chat-style Task List
+                Expanded(
+                  child: PageView.builder(
+                    controller: _pageController,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: _currentWeekDates.length,
+                    itemBuilder: (context, index) {
+                      final date = _currentWeekDates[index];
+                      final dateKey = _getDateKey(date);
+                      final dayTasks = _tasks[dateKey] ?? [];
+                      final isToday = _isTodayIndex(index);
+                      final displayText = _getDateDisplayText(date, true);
+
+                      return AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 400),
+                        switchInCurve: Curves.easeInOutCubic,
+                        switchOutCurve: Curves.easeInOutCubic,
+                        transitionBuilder: (child, animation) {
+                          return SlideTransition(
+                            position:
+                                Tween<Offset>(
+                                  begin: const Offset(0.15, 0.0),
+                                  end: Offset.zero,
+                                ).animate(
+                                  CurvedAnimation(
+                                    parent: animation,
+                                    curve: Curves.easeInOutCubic,
+                                  ),
+                                ),
+                            child: FadeTransition(
+                              opacity: CurvedAnimation(
+                                parent: animation,
+                                curve: Curves.easeInOutCubic,
+                              ),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: Column(
+                          key: ValueKey(
+                            index,
+                          ), // Important for AnimatedSwitcher
+                          children: [
+                            // Migration button (only show on today if there are unfinished tasks in past days)
+                            // if (isToday && _hasUnfinishedTasksInPastDays())
+                            //   Container(
+                            //     margin: EdgeInsets.symmetric(
+                            //       horizontal: RubyTheme.spacingM(context),
+                            //       vertical: RubyTheme.spacingS(context),
+                            //     ),
+                            //     child: GestureDetector(
+                            //       onTap: _migrateUnfinishedTasksToToday,
+                            //       child: AnimatedContainer(
+                            //         duration: const Duration(milliseconds: 400),
+                            //         curve: Curves.easeInOutCubic,
+                            //         padding: EdgeInsets.symmetric(
+                            //           horizontal: RubyTheme.spacingL(context),
+                            //           vertical: RubyTheme.spacingM(context),
+                            //         ),
+                            //         decoration: BoxDecoration(
+                            //           gradient: RubyTheme.rubyGradient,
+                            //           borderRadius: BorderRadius.circular(
+                            //             RubyTheme.radiusLarge(context),
+                            //           ),
+                            //           boxShadow: RubyTheme.softShadow,
+                            //         ),
+                            //         child: Row(
+                            //           mainAxisAlignment: MainAxisAlignment.center,
+                            //           children: [
+                            //             Icon(
+                            //               Icons.schedule_rounded,
+                            //               color: RubyTheme.pureWhite,
+                            //               size: 20,
+                            //             ),
+                            //             SizedBox(
+                            //               width: RubyTheme.spacingS(context),
+                            //             ),
+                            //             Text(
+                            //               'نقل التاسكات غير المكتملة من الأيام الماضية',
+                            //               style: RubyTheme.bodyLarge(context)
+                            //                   .copyWith(
+                            //                     color: RubyTheme.pureWhite,
+                            //                     fontWeight: FontWeight.w600,
+                            //                   ),
+                            //             ),
+                            //             SizedBox(
+                            //               width: RubyTheme.spacingS(context),
+                            //             ),
+                            //             Container(
+                            //               padding: EdgeInsets.symmetric(
+                            //                 horizontal: RubyTheme.spacingS(
+                            //                   context,
+                            //                 ),
+                            //                 vertical: RubyTheme.spacingXS(
+                            //                   context,
+                            //                 ),
+                            //               ),
+                            //               decoration: BoxDecoration(
+                            //                 color: RubyTheme.pureWhite
+                            //                     .withOpacity(0.2),
+                            //                 borderRadius: BorderRadius.circular(
+                            //                   RubyTheme.radiusMedium(context),
+                            //                 ),
+                            //               ),
+                            //               child: Text(
+                            //                 '${_getUnfinishedTasksCountInPastDays()}',
+                            //                 style: RubyTheme.bodyMedium(context)
+                            //                     .copyWith(
+                            //                       color: RubyTheme.pureWhite,
+                            //                       fontWeight: FontWeight.w700,
+                            //                     ),
+                            //               ),
+                            //             ),
+                            //           ],
+                            //         ),
+                            //       ),
+                            //     ),
+                            //   ),
+
+                            // Chat History + Active Tasks
+                            Expanded(
+                              child: _buildChatHistoryView(
+                                dateKey,
+                                dayTasks,
+                                displayText,
+                                isToday,
+                              ),
+                            ),
+
+                            // Chat input
+                            ChatInput(
+                              dayOfWeek: displayText,
+                              onTaskAdded: _addTaskToCurrentDay,
+                              onTaskRestored: _restoreTask,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
