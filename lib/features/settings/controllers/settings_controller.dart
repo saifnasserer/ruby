@@ -13,6 +13,7 @@ class SettingsController extends ChangeNotifier {
   static const String _isAssetWallpaperKey = 'is_asset_wallpaper';
   static const String _darkModeKey = 'dark_mode';
   static const String _recentWallpapersKey = 'recent_wallpapers';
+  static const String _guestModeKey = 'guest_mode';
 
   final SharedPreferences _prefs;
 
@@ -23,6 +24,7 @@ class SettingsController extends ChangeNotifier {
   bool _enableNotifications = true;
   bool _isAssetWallpaper = true;
   bool _isDarkMode = false;
+  bool _isGuestMode = false;
   List<String> _recentWallpapers = [];
 
   SettingsController(this._prefs) {
@@ -37,6 +39,7 @@ class SettingsController extends ChangeNotifier {
   bool get enableNotifications => _enableNotifications;
   bool get isAssetWallpaper => _isAssetWallpaper;
   bool get isDarkMode => _isDarkMode;
+  bool get isGuestMode => _isGuestMode;
   List<String> get recentWallpapers => _recentWallpapers;
 
   void _loadSettings() {
@@ -50,6 +53,7 @@ class SettingsController extends ChangeNotifier {
         _prefs.getBool(_isAssetWallpaperKey) ??
         (_wallpaperPath == 'assets/pattern.jpg');
     _isDarkMode = _prefs.getBool(_darkModeKey) ?? false;
+    _isGuestMode = _prefs.getBool(_guestModeKey) ?? false;
     _recentWallpapers = _prefs.getStringList(_recentWallpapersKey) ?? [];
     notifyListeners();
   }
@@ -131,6 +135,12 @@ class SettingsController extends ChangeNotifier {
   Future<void> toggleDarkMode(bool value) async {
     _isDarkMode = value;
     await _prefs.setBool(_darkModeKey, value);
+    notifyListeners();
+  }
+
+  Future<void> setGuestMode(bool value) async {
+    _isGuestMode = value;
+    await _prefs.setBool(_guestModeKey, value);
     notifyListeners();
   }
 }

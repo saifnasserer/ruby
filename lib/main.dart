@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ruby/features/weekly_view/views/weekly_view_page.dart';
 import 'package:ruby/core/services/local_notification_service.dart';
 import 'package:ruby/features/settings/controllers/settings_controller.dart';
+import 'package:ruby/core/services/auth_service.dart';
+import 'package:ruby/presentation/screens/auth/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -76,7 +78,18 @@ class Ruby extends StatelessWidget {
               labelSmall: TextStyle(fontFamily: 'NotoSansArabic'),
             ),
           ),
-          home: WeeklyViewPage(settingsController: settingsController),
+          home: StreamBuilder(
+            stream: AuthService.instance.authStateChange,
+            builder: (context, snapshot) {
+              // Show app if authenticated OR guest mode is enabled
+              if (AuthService.instance.isAuthenticated ||
+                  settingsController.isGuestMode) {
+                return WeeklyViewPage(settingsController: settingsController);
+              }
+              // Otherwise show login
+              return LoginScreen(settingsController: settingsController);
+            },
+          ),
         );
       },
     );

@@ -208,6 +208,9 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
                               ),
                             );
                           },
+                          onSyncTap: () async {
+                            await taskController.loadTasks();
+                          },
                           onFilterTap: () => _showFilterBottomSheet(),
                           currentFilter: _currentFilter,
                         )

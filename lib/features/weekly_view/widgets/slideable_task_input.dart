@@ -5,12 +5,15 @@ import '../../../core/models/task_filter.dart';
 import '../../../presentation/widgets/chat_input.dart';
 import '../../settings/views/settings_screen.dart';
 import '../../settings/controllers/settings_controller.dart';
+import '../../../core/services/auth_service.dart';
+import '../../../presentation/screens/auth/login_screen.dart';
 
 class SlideableTaskInput extends StatefulWidget {
   final String dayOfWeek;
   final Function(String) onTaskAdded;
   final Function(String, String)? onTaskRestored;
   final Function(String, List<double>?)? onVoiceTaskAdded;
+  final Future<void> Function()? onSyncTap;
 
   final SettingsController settingsController;
   final VoidCallback? onSearchTap;
@@ -24,6 +27,7 @@ class SlideableTaskInput extends StatefulWidget {
     required this.settingsController,
     this.onTaskRestored,
     this.onVoiceTaskAdded,
+    this.onSyncTap,
     this.onSearchTap,
     this.onFilterTap,
     this.currentFilter,
@@ -205,7 +209,7 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
               _animateTo(0, 0); // Return to input
             },
           ),
-          SizedBox(width: 15), // Reduced Spacing (Closer)
+          SizedBox(width: 15),
           _buildQuickActionButton(
             context,
             icon: Icons.search,
@@ -249,6 +253,41 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
                   ),
                 ),
             ],
+          ),
+          SizedBox(width: 15),
+          // Sync / Login Button
+          _buildQuickActionButton(
+            context,
+            icon: Icons.cloud_sync,
+            color: RubyTheme.surfaceVariant(context),
+            label: 'مزامنة',
+            onTap: () async {
+              if (AuthService.instance.isAuthenticated) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('جاري المزامنة...')));
+                if (widget.onSyncTap != null) {
+                  await widget.onSyncTap!();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('تمت المزامنة بنجاح!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                }
+              } else {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => LoginScreen(
+                      settingsController: widget.settingsController,
+                    ),
+                  ),
+                );
+              }
+              _animateTo(0, 0); // Close drawer
+            },
           ),
         ],
       ),

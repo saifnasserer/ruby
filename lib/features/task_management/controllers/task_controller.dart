@@ -3,6 +3,8 @@ import '../../../../core/models/task.dart';
 import '../../../../core/services/storage_service.dart';
 import '../../../../core/services/chat_history_service.dart';
 import '../../../../core/services/sound_service.dart';
+import '../../../../core/services/sync_service.dart';
+import '../../../../core/services/auth_service.dart';
 
 class TaskController extends ChangeNotifier {
   Map<String, List<Task>> _tasks = {};
@@ -51,6 +53,9 @@ class TaskController extends ChangeNotifier {
     // Save tasks after adding
     _saveTasks();
     notifyListeners();
+
+    // Sync to cloud
+    SyncService.instance.createTask(task);
   }
 
   /// Add a full task object
@@ -71,6 +76,9 @@ class TaskController extends ChangeNotifier {
     // Save tasks after adding
     _saveTasks();
     notifyListeners();
+
+    // Sync to cloud
+    SyncService.instance.createTask(task);
   }
 
   /// Toggle task completion
@@ -117,6 +125,17 @@ class TaskController extends ChangeNotifier {
     // Save tasks after toggling
     _saveTasks();
     notifyListeners();
+
+    // Sync to cloud
+    // Sync to cloud
+    if (dayTasks != null) {
+      final task = dayTasks.firstWhere(
+        (t) => t.id == taskId,
+        orElse: () =>
+            Task(id: '0', text: '', createdAt: DateTime.now(), dayOfWeek: ''),
+      );
+      if (task.id != '0') SyncService.instance.updateTask(task);
+    }
   }
 
   /// Delete a task (mark as deleted)
@@ -147,6 +166,19 @@ class TaskController extends ChangeNotifier {
     // Save tasks after deleting
     _saveTasks();
     notifyListeners();
+
+    // Sync to cloud (delete or update as deleted?)
+    // Our SyncService.deleteTask deletes the record.
+    // If we want to keep it as "soft deleted" in cloud, we should updateTask.
+    // Task model has isDeleted. Let's updateTask to reflect isDeleted=true.
+    // Task model has isDeleted. Let's updateTask to reflect isDeleted=true.
+    if (dayTasks != null) {
+      // We need to find the task again because we modified it in the list
+      try {
+        final task = dayTasks.firstWhere((t) => t.id == taskId);
+        SyncService.instance.updateTask(task);
+      } catch (_) {}
+    }
   }
 
   /// Restore a deleted task
@@ -183,6 +215,32 @@ class TaskController extends ChangeNotifier {
     _movePinnedTasksToToday();
 
     notifyListeners();
+
+    // Cloud Sync: Fetch tasks if authenticated
+    if (AuthService.instance.isAuthenticated) {
+      try {
+        final cloudTasks = await SyncService.instance.fetchAllTasks();
+        if (cloudTasks.isNotEmpty) {
+          for (var task in cloudTasks) {
+            final dateKey = task.dayOfWeek;
+            if (dateKey.isEmpty) continue; // Skip invalid
+
+            _tasks[dateKey] = _tasks[dateKey] ?? [];
+
+            final index = _tasks[dateKey]!.indexWhere((t) => t.id == task.id);
+            if (index != -1) {
+              _tasks[dateKey]![index] = task;
+            } else {
+              _tasks[dateKey]!.add(task);
+            }
+          }
+          _saveTasks();
+          notifyListeners();
+        }
+      } catch (e) {
+        debugPrint('Sync error: $e');
+      }
+    }
   }
 
   /// Save tasks to storage
@@ -353,6 +411,10 @@ class TaskController extends ChangeNotifier {
 
     _saveTasks();
     notifyListeners();
+
+    // Sync
+    final task = getTask(dateKey, taskId);
+    if (task != null) SyncService.instance.updateTask(task);
   }
 
   /// Update task text without adding a chat message (useful for real-time updates)
@@ -372,6 +434,9 @@ class TaskController extends ChangeNotifier {
 
     _saveTasks();
     notifyListeners();
+    // Sync (Real-time typing might spam sync... maybe debounce? allowing for now)
+    final task = getTask(dateKey, taskId);
+    if (task != null) SyncService.instance.updateTask(task);
   }
 
   /// Update task priority
@@ -405,6 +470,9 @@ class TaskController extends ChangeNotifier {
 
     _saveTasks();
     notifyListeners();
+    // Sync
+    final task = getTask(dateKey, taskId);
+    if (task != null) SyncService.instance.updateTask(task);
   }
 
   /// Toggle task pin status
@@ -427,6 +495,9 @@ class TaskController extends ChangeNotifier {
 
     _saveTasks();
     notifyListeners();
+    // Sync
+    final task = getTask(dateKey, taskId);
+    if (task != null) SyncService.instance.updateTask(task);
   }
 
   /// Update task subtasks
@@ -446,6 +517,9 @@ class TaskController extends ChangeNotifier {
 
         _saveTasks();
         notifyListeners();
+
+        // Sync
+        SyncService.instance.updateTask(dayTasks[taskIndex]);
       }
     }
   }
@@ -477,6 +551,9 @@ class TaskController extends ChangeNotifier {
 
     _saveTasks();
     notifyListeners();
+    // Sync
+    final task = getTask(dateKey, taskId);
+    if (task != null) SyncService.instance.updateTask(task);
   }
 
   /// Update task tags
@@ -496,6 +573,9 @@ class TaskController extends ChangeNotifier {
 
     _saveTasks();
     notifyListeners();
+    // Sync
+    final task = getTask(dateKey, taskId);
+    if (task != null) SyncService.instance.updateTask(task);
   }
 
   /// Update task deadline
@@ -515,6 +595,9 @@ class TaskController extends ChangeNotifier {
 
     _saveTasks();
     notifyListeners();
+    // Sync
+    final task = getTask(dateKey, taskId);
+    if (task != null) SyncService.instance.updateTask(task);
   }
 
   /// Move task to another day
@@ -577,6 +660,9 @@ class TaskController extends ChangeNotifier {
 
     _saveTasks();
     notifyListeners();
+    // Sync (Move = Update in our logic because ID stays same, just dayOfWeek changes)
+    final task = getTask(toDateKey, taskId);
+    if (task != null) SyncService.instance.updateTask(task);
   }
 
   /// Check for pinned tasks in past days and move them to today
