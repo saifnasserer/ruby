@@ -75,9 +75,18 @@ class AuthService {
   Stream<RecordModel?> get authStateChange =>
       _pb.authStore.onChange.map((event) => event.model);
 
-  RecordModel? get currentUser => _pb.authStore.model is RecordModel
-      ? _pb.authStore.model as RecordModel
-      : null;
+  RecordModel? get currentUser {
+    final model = _pb.authStore.model;
+    if (model is RecordModel) return model;
+    return null;
+  }
+
+  String? get currentUserId {
+    final model = _pb.authStore.model;
+    if (model is RecordModel) return model.id;
+    if (model is Map<String, dynamic>) return model['id'] as String?;
+    return null;
+  }
 
   bool get isAuthenticated => _pb.authStore.isValid;
 

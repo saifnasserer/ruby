@@ -76,10 +76,10 @@ class SettingsScreen extends StatelessWidget {
                         // SizedBox(height: 16),
                         _buildControlGrid(context, isDark: isDark),
 
-                        SizedBox(height: 32),
-                        _buildSectionLabel(context, 'الحساب'),
-                        _buildSignOutButton(context),
+                        // SizedBox(height: 32),
+                        // _buildSectionLabel(context, 'الحساب'),
 
+                        // _buildSignOutButton(context),
                         SizedBox(height: 48), // Bottom padding
                       ],
                     ),
@@ -464,28 +464,28 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSignOutButton(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: EdgeInsets.only(top: 16),
-      child: ElevatedButton.icon(
-        icon: Icon(Icons.logout, color: Colors.white),
-        label: Text(
-          'تسجيل الخروج',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.redAccent,
-          padding: EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-        ),
-        onPressed: () {
-          AuthService.instance.signOut();
-          Navigator.of(context).pop();
-        },
-      ),
-    );
-  }
+  // Widget _buildSignOutButton(BuildContext context) {
+  //   return Container(
+  //     width: double.infinity,
+  //     margin: EdgeInsets.only(top: 16),
+  //     child: ElevatedButton.icon(
+  //       icon: Icon(Icons.logout, color: Colors.white),
+  //       label: Text(
+  //         'تسجيل الخروج',
+  //         style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+  //       ),
+  //       style: ElevatedButton.styleFrom(
+  //         backgroundColor: Colors.redAccent,
+  //         padding: EdgeInsets.symmetric(vertical: 16),
+  //         shape: RoundedRectangleBorder(
+  //           borderRadius: BorderRadius.circular(24),
+  //         ),
+  //       ),
+  //       onPressed: () {
+  //         AuthService.instance.signOut();
+  //         Navigator.of(context).pop();
+  //       },
+  //     ),
+  //   );
+  // }
 }

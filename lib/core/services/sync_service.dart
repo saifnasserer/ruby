@@ -105,7 +105,15 @@ class SyncService {
 
   /// Main entry point for syncing everything
   Future<void> sync() async {
-    if (!AuthService.instance.isAuthenticated || _isSyncing) return;
+    final userId = AuthService.instance.currentUserId;
+    if (!AuthService.instance.isAuthenticated || _isSyncing || userId == null) {
+      if (AuthService.instance.isAuthenticated && userId == null) {
+        debugPrint(
+          'SyncService: Skipping sync - Authenticated but userId is null.',
+        );
+      }
+      return;
+    }
 
     _isSyncing = true;
     try {
@@ -115,10 +123,13 @@ class SyncService {
       await _processOfflineQueue();
 
       // 2. Fetch remote tasks
-      final userId = AuthService.instance.currentUser?.id;
+      final userId = AuthService.instance.currentUserId;
       final remoteRecords = await _pb
           .collection(_collectionName)
           .getFullList(sort: '-updated', filter: 'user = "$userId"');
+      debugPrint(
+        'SyncService: Fetched ${remoteRecords.length} remote tasks for user $userId',
+      );
 
       // 3. Get local tasks
       final localTasksMap = await StorageService.loadTasks();
@@ -170,7 +181,13 @@ class SyncService {
           localUpdatedAt.add(const Duration(seconds: 1)),
         )) {
           // Remote is newer -> Update local
-          _updateLocalTaskInMap(localTasksMap, _recordToTask(remote));
+          final remoteTask = _recordToTask(remote);
+          if (task.dayOfWeek != remoteTask.dayOfWeek) {
+            debugPrint(
+              'SyncService: Task ${task.id} moving from ${task.dayOfWeek} to ${remoteTask.dayOfWeek}',
+            );
+          }
+          _updateLocalTaskInMap(localTasksMap, remoteTask);
           hasLocalChanges = true;
         }
       }
@@ -200,13 +217,14 @@ class SyncService {
   }
 
   void _updateLocalTaskInMap(Map<String, List<Task>> map, Task task) {
-    final list = map[task.dayOfWeek] ?? [];
-    final index = list.indexWhere((t) => t.id == task.id);
-    if (index != -1) {
-      list[index] = task;
-    } else {
-      list.add(task);
+    // 1. Remove the task if it exists anywhere else (prevents duplicates across days)
+    for (final day in map.keys.toList()) {
+      map[day]?.removeWhere((t) => t.id == task.id);
     }
+
+    // 2. Add to its current correct day
+    final list = map[task.dayOfWeek] ?? [];
+    list.add(task);
     map[task.dayOfWeek] = list;
   }
 
@@ -219,17 +237,34 @@ class SyncService {
       }
 
       final body = _taskToRecordMap(task);
-      final userId = AuthService.instance.currentUser?.id;
+      final userId = AuthService.instance.currentUserId;
       if (userId == null) {
-        debugPrint('SyncService: Skipping upload. User ID is null.');
+        debugPrint(
+          'SyncService: Skipping upload for task ${task.id}. User ID is null.',
+        );
         return;
       }
+      debugPrint('SyncService: Uploading task ${task.id} for user $userId');
+
       body['user'] = userId;
 
       if (remoteId != null) {
         await _pb.collection(_collectionName).update(remoteId, body: body);
       } else {
-        await _pb.collection(_collectionName).create(body: body);
+        try {
+          await _pb.collection(_collectionName).create(body: body);
+        } catch (e) {
+          // If it fails with a relation error, it might be a multi-relation field
+          if (e.toString().contains('validation_missing_rel_records')) {
+            debugPrint(
+              'SyncService: Probable multi-relation mismatch. Retrying as array...',
+            );
+            body['user'] = [userId];
+            await _pb.collection(_collectionName).create(body: body);
+          } else {
+            rethrow;
+          }
+        }
       }
     } catch (e) {
       debugPrint('SyncService: Error uploading task ${task.id}: $e');
@@ -291,7 +326,7 @@ class SyncService {
             }
           }
           if (task != null) {
-            final userId = AuthService.instance.currentUser?.id;
+            final userId = AuthService.instance.currentUserId;
             final records = await _pb
                 .collection(_collectionName)
                 .getList(filter: 'local_id = "$taskId" && user = "$userId"');
@@ -313,7 +348,7 @@ class SyncService {
   }
 
   Future<void> _deleteTaskRemotely(String taskId) async {
-    final userId = AuthService.instance.currentUser?.id;
+    final userId = AuthService.instance.currentUserId;
     final records = await _pb
         .collection(_collectionName)
         .getList(filter: 'local_id = "$taskId" && user = "$userId"');

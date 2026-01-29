@@ -60,5 +60,7 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- WhatsApp query for url_launcher -->
+        <package android:name="com.whatsapp" />
     </queries>
 </manifest>

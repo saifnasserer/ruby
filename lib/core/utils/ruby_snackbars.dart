@@ -36,19 +36,15 @@ class RubySnackBar {
         behavior: SnackBarBehavior.floating,
         backgroundColor: Colors.transparent,
         content: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           decoration: BoxDecoration(
-            color: const Color(
-              0xFF1E1E1E,
-            ).withOpacity(0.9), // Dark premium background
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: color.withOpacity(0.5), width: 1.5),
+            color: const Color(0xFF2A2A2A), // Softer dark background
+            borderRadius: BorderRadius.circular(30),
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.2),
-                blurRadius: 15,
-                spreadRadius: 1,
-                offset: const Offset(0, 4),
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
@@ -56,29 +52,32 @@ class RubySnackBar {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 24),
-              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 14),
               Flexible(
                 child: Text(
                   message,
-                  textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontFamily: 'NotoSansArabic',
                     color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    height: 1.4,
                   ),
                 ),
               ),
             ],
           ),
         ),
-        margin: EdgeInsets.only(
-          bottom: MediaQuery.of(context).size.height * 0.4,
-          left: 32,
-          right: 32,
-        ),
-        duration: const Duration(seconds: 3),
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        duration: const Duration(milliseconds: 2500),
       ),
     );
   }

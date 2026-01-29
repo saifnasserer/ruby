@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ruby/features/weekly_view/views/weekly_view_page.dart';
@@ -5,10 +6,15 @@ import 'package:ruby/core/services/local_notification_service.dart';
 import 'package:ruby/features/settings/controllers/settings_controller.dart';
 import 'package:ruby/core/services/auth_service.dart';
 import 'package:ruby/core/services/backend_service.dart';
+import 'package:ruby/core/services/sync_service.dart';
 import 'package:ruby/presentation/screens/auth/login_screen.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+
+  // Preserve native splash screen until app is ready
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   // Initialize notification service
   await LocalNotificationService.instance.initialize();
@@ -20,7 +26,24 @@ void main() async {
   // Initialize Backend with persistence
   await BackendService.instance.init(prefs);
 
+  // Bypass SSL verification (for development/certificate issues)
+  HttpOverrides.global = MyHttpOverrides();
+
   runApp(Ruby(settingsController: settingsController));
+
+  // Remove splash screen after a short delay
+  Future.delayed(const Duration(milliseconds: 1000), () {
+    FlutterNativeSplash.remove();
+  });
+}
+
+class MyHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    return super.createHttpClient(context)
+      ..badCertificateCallback =
+          (X509Certificate cert, String host, int port) => true;
+  }
 }
 
 class Ruby extends StatelessWidget {
@@ -89,6 +112,10 @@ class Ruby extends StatelessWidget {
 
               // 1. Show app if authenticated
               if (auth.isAuthenticated) {
+                // Trigger auto-sync on app open when authenticated
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  SyncService.instance.sync();
+                });
                 return WeeklyViewPage(settingsController: settingsController);
               }
 

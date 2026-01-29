@@ -61,6 +61,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_native_splash: ^2.4.2
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -90,6 +91,7 @@ flutter:
     - assets/pattern.jpg
     - assets/darkmode bg.jpg
     - assets/audio/
+    - assets/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -143,3 +145,13 @@ icons_launcher:
       enable: true
     linux:
       enable: true
+
+# Flutter Native Splash configuration
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: assets/Untitled design.png
+  android_12:
+    color: "#FFFFFF"
+    image: assets/Untitled design.png
+  ios: true
+  android: true

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:ruby/core/models/chat_message.dart';
 import 'package:ruby/core/models/task.dart';
 import 'package:ruby/core/theme/ruby_theme.dart';
-import 'package:ruby/responsive.dart';
 import 'package:ruby/features/task_management/controllers/task_controller.dart';
 import 'package:ruby/features/task_migration/controllers/migration_controller.dart';
 import 'package:ruby/features/weekly_view/controllers/weekly_view_controller.dart';
@@ -65,66 +64,10 @@ mixin WeeklyViewLogicMixin<T extends StatefulWidget> on State<T> {
   }
 
   void addTaskToDay(String dateKey, String taskText) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-
-    final dateParts = dateKey.split('-');
-    final targetDate = DateTime(
-      int.parse(dateParts[0]),
-      int.parse(dateParts[1]),
-      int.parse(dateParts[2]),
-    );
-
-    if (targetDate.isBefore(today)) {
-      final targetWeekday = targetDate.weekday;
-      final daysUntilNext = (targetWeekday - today.weekday + 7) % 7;
-      final nextOccurrence = daysUntilNext == 0
-          ? today.add(const Duration(days: 7))
-          : today.add(Duration(days: daysUntilNext));
-
-      final nextDateKey = weeklyViewController.getDateKey(nextOccurrence);
-      taskController.addTask(nextDateKey, taskText);
-      loadChatHistoryForDay(nextDateKey);
-
-      if (mounted) {
-        final arabicWeekdays = [
-          'الأحد',
-          'الإثنين',
-          'الثلاثاء',
-          'الأربعاء',
-          'الخميس',
-          'الجمعة',
-          'السبت',
-        ];
-        // targetWeekday is 1 (Mon) to 7 (Sun)
-        final dayName = arabicWeekdays[targetWeekday % 7];
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم جدولة التاسك ل$dayName ${nextOccurrence.day}/${nextOccurrence.month}',
-              style: RubyTheme.bodyMedium(
-                context,
-              ).copyWith(color: RubyTheme.pureWhite),
-            ),
-            backgroundColor: RubyTheme.sapphire,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(
-                Responsive.space(context, size: Space.medium),
-              ),
-            ),
-            margin: EdgeInsets.all(
-              Responsive.space(context, size: Space.medium),
-            ),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } else {
-      taskController.addTask(dateKey, taskText);
-      loadChatHistoryForDay(dateKey);
-    }
+    // Always add to the specific day requested.
+    // This ensures historical data is preserved as intended by the user.
+    taskController.addTask(dateKey, taskText);
+    loadChatHistoryForDay(dateKey);
   }
 
   void toggleTaskCompletion(String taskId) {

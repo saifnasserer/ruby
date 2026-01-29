@@ -124,7 +124,7 @@ class ProfileScreen extends StatelessWidget {
                           iconColor: Colors.deepPurpleAccent,
                           onTap: () {
                             Share.share(
-                              'حمل تطبيق بكيزة ونظم يومك بسهولة! ✨\nhttps://play.google.com/store/apps/details?id=cloud.kingsaif.bakiza',
+                              'حمل تطبيق بكيزة ونظم يومك بسهولة! ✨\nhttps://play.google.com/store/apps/details?id=com.engseif.ruby',
                             );
                           },
                         ),
@@ -134,19 +134,36 @@ class ProfileScreen extends StatelessWidget {
                           label: 'بلغ عن مشكلة',
                           iconColor: Colors.teal,
                           onTap: () async {
+                            // Try WhatsApp native app first, then web fallback
                             final whatsappUrl = Uri.parse(
+                              "whatsapp://send?phone=201120352161",
+                            );
+                            final webUrl = Uri.parse(
                               "https://wa.me/201120352161",
                             );
-                            if (await canLaunchUrl(whatsappUrl)) {
+
+                            try {
+                              // Try native WhatsApp first
                               await launchUrl(
                                 whatsappUrl,
                                 mode: LaunchMode.externalApplication,
                               );
-                            } else {
-                              RubySnackBar.showError(
-                                context,
-                                "مش عارفين نفتح واتساب.. جرب تاني؟ �",
-                              );
+                            } catch (e) {
+                              // If native fails, try web WhatsApp
+                              try {
+                                await launchUrl(
+                                  webUrl,
+                                  mode: LaunchMode.externalApplication,
+                                );
+                              } catch (e) {
+                                // Both failed, show error
+                                if (context.mounted) {
+                                  RubySnackBar.showError(
+                                    context,
+                                    "مش عارفين نفتح واتساب.. جرب تاني؟ 🤔",
+                                  );
+                                }
+                              }
                             }
                           },
                         ),

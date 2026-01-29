@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/ruby_theme.dart';
 import '../../../../core/models/task.dart';
-import '../../../../core/utils/date_formatter.dart';
 import '../../../../presentation/widgets/task_bubble.dart';
 import '../../../../responsive.dart';
 import '../../../../presentation/widgets/date_separator.dart';
@@ -76,9 +75,8 @@ class UnifiedChatView extends StatelessWidget {
     // Group tasks by their storage date (dayOfWeek field)
     final Map<String, List<Task>> groupedByDate = {};
     for (var task in tasks) {
-      // Use the task's actual creation date to determine the group
-      // This handles both old tasks (with Arabic dayOfWeek) and new tasks (with date keys)
-      final itemDateKey = DateFormatter.getDateKey(task.createdAt);
+      // Use the task's scheduled dayOfWeek, which is the date key
+      final itemDateKey = task.dayOfWeek;
       groupedByDate.putIfAbsent(itemDateKey, () => []);
       groupedByDate[itemDateKey]!.add(task);
     }

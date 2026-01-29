@@ -12,7 +12,17 @@ class PersistedAuthStore extends AuthStore {
     if (saved != null) {
       try {
         final data = jsonDecode(saved);
-        save(data['token'], data['model']);
+        final token = data['token'] as String;
+        final modelData = data['model'];
+
+        dynamic model;
+        if (modelData != null && modelData is Map<String, dynamic>) {
+          model = RecordModel.fromJson(modelData);
+        } else {
+          model = modelData;
+        }
+
+        save(token, model);
       } catch (e) {
         print('Error loading persisted auth: $e');
       }

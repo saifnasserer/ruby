@@ -199,14 +199,30 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
             color: RubyTheme.surfaceVariant(context),
             label: 'الملف الشخصي',
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ProfileScreen(
-                    settingsController: widget.settingsController,
+              // Check if user is logged in
+              final isLoggedIn = AuthService.instance.currentUser != null;
+
+              if (isLoggedIn) {
+                // Navigate to profile if logged in
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ProfileScreen(
+                      settingsController: widget.settingsController,
+                    ),
                   ),
-                ),
-              );
+                );
+              } else {
+                // Show login screen if logged out
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => LoginScreen(
+                      settingsController: widget.settingsController,
+                    ),
+                  ),
+                );
+              }
               _animateTo(0, 0);
             },
           ),
