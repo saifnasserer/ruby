@@ -4,6 +4,7 @@ import 'package:ruby/features/weekly_view/views/weekly_view_page.dart';
 import 'package:ruby/core/services/local_notification_service.dart';
 import 'package:ruby/features/settings/controllers/settings_controller.dart';
 import 'package:ruby/core/services/auth_service.dart';
+import 'package:ruby/core/services/backend_service.dart';
 import 'package:ruby/presentation/screens/auth/login_screen.dart';
 
 void main() async {
@@ -15,6 +16,9 @@ void main() async {
   // Initialize settings
   final prefs = await SharedPreferences.getInstance();
   final settingsController = SettingsController(prefs);
+
+  // Initialize Backend with persistence
+  await BackendService.instance.init(prefs);
 
   runApp(Ruby(settingsController: settingsController));
 }
@@ -81,13 +85,20 @@ class Ruby extends StatelessWidget {
           home: StreamBuilder(
             stream: AuthService.instance.authStateChange,
             builder: (context, snapshot) {
-              // Show app if authenticated OR guest mode is enabled
-              if (AuthService.instance.isAuthenticated ||
-                  settingsController.isGuestMode) {
+              final auth = AuthService.instance;
+
+              // 1. Show app if authenticated
+              if (auth.isAuthenticated) {
                 return WeeklyViewPage(settingsController: settingsController);
               }
-              // Otherwise show login
-              return LoginScreen(settingsController: settingsController);
+
+              // 2. If not authenticated, decide whether to show login or app
+              if (settingsController.isFirstLaunch || auth.reAuthRequired) {
+                return LoginScreen(settingsController: settingsController);
+              }
+
+              // Default to app (guest mode essentially)
+              return WeeklyViewPage(settingsController: settingsController);
             },
           ),
         );

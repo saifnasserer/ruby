@@ -3,6 +3,7 @@ import 'package:ruby/features/weekly_view/views/weekly_view_page.dart';
 import 'package:ruby/core/services/auth_service.dart';
 import 'package:ruby/features/settings/controllers/settings_controller.dart';
 import 'package:ruby/core/theme/ruby_theme.dart';
+import 'package:ruby/core/utils/ruby_snackbars.dart';
 import 'dart:ui';
 
 class LoginScreen extends StatefulWidget {
@@ -16,27 +17,31 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
-  String? _errorMessage;
 
   Future<void> _handleGoogleSignIn() async {
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
     });
 
     try {
       await AuthService.instance.signInWithGoogle();
+      if (mounted && widget.settingsController != null) {
+        widget.settingsController!.setFirstLaunch(false);
+      }
+      if (mounted) {
+        // Show success message before popping
+        RubySnackBar.showSuccess(context, "دخول رايق.. نورت يا بكيزة! ✨");
+
+        if (Navigator.canPop(context)) {
+          // Delay pop slightly so they can see the message
+          Future.delayed(const Duration(milliseconds: 1500), () {
+            if (mounted) Navigator.pop(context);
+          });
+        }
+      }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _errorMessage = "فشل تسجيل الدخول. يرجى المحاولة مرة أخرى.\n($e)";
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ في الاتصال: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        RubySnackBar.showError(context, "حصلت مشكلة في الدخول. جرب تاني كدا.");
       }
     } finally {
       if (mounted) {
@@ -48,6 +53,10 @@ class _LoginScreenState extends State<LoginScreen> {
   void _handleSkip() {
     if (widget.settingsController != null) {
       widget.settingsController!.setGuestMode(true);
+      widget.settingsController!.setFirstLaunch(false);
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
     } else {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
@@ -95,27 +104,35 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
-                      SafeArea(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 60),
-                              const Text(
-                                'تسجيل\nالدخول',
-                                style: TextStyle(
-                                  fontFamily: 'NotoSansArabic',
-                                  fontSize: 48,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.black,
-                                  height: 1.1,
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: SafeArea(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 32.0,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                const SizedBox(height: 60),
+                                const Text(
+                                  'نورت بكيزة!',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontFamily: 'NotoSansArabic',
+                                    fontSize: 48,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.black,
+                                    height: 1.1,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(
-                                height: 80,
-                              ), // Leave space for wave
-                            ],
+                                const SizedBox(
+                                  height: 80,
+                                ), // Leave space for wave
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -130,36 +147,21 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   children: [
                     const SizedBox(height: 10),
-                    Text(
-                      'مرحباً بك في Ruby. سجل الدخول لمزامنة مهامك على السحابة.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'NotoSansArabic',
-                        fontSize: 16,
-                        color: subTextColor,
-                        height: 1.5,
+                    Center(
+                      child: Text(
+                        'ادخل بجوجل عشان تاسكاتك تفضل معاك في كل حتة.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'NotoSansArabic',
+                          fontSize: 16,
+                          color: subTextColor,
+                          height: 1.5,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 48),
 
-                    if (_errorMessage != null)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 24),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          _errorMessage!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.redAccent,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
+                    const SizedBox(height: 48),
 
                     // Primary Action: Google Sign In with Premium Gradient Border
                     _isLoading
@@ -199,7 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     Icon(Icons.g_mobiledata, size: 36),
                                     SizedBox(width: 8),
                                     Text(
-                                      'الاستمرار باستخدام Google',
+                                      'تسجيل الدخول',
                                       style: TextStyle(
                                         fontFamily: 'NotoSansArabic',
                                         fontSize: 16,
@@ -229,7 +231,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           foregroundColor: Colors.white,
                         ),
                         child: Text(
-                          'تخطي والمتابعة كضيف',
+                          'كمل كضيف دلوقتي',
                           style: TextStyle(
                             fontFamily: 'NotoSansArabic',
                             fontSize: 15,

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import '../../../../core/models/chat_message.dart';
-import '../../../../core/models/task.dart';
-import '../../../../core/theme/ruby_theme.dart';
-import '../../../../responsive.dart';
-import '../../task_management/controllers/task_controller.dart';
-import '../../task_migration/controllers/migration_controller.dart';
-import '../controllers/weekly_view_controller.dart';
-import '../../../../core/services/chat_history_service.dart';
+import 'package:ruby/core/models/chat_message.dart';
+import 'package:ruby/core/models/task.dart';
+import 'package:ruby/core/theme/ruby_theme.dart';
+import 'package:ruby/responsive.dart';
+import 'package:ruby/features/task_management/controllers/task_controller.dart';
+import 'package:ruby/features/task_migration/controllers/migration_controller.dart';
+import 'package:ruby/features/weekly_view/controllers/weekly_view_controller.dart';
+import 'package:ruby/core/services/chat_history_service.dart';
 
 mixin WeeklyViewLogicMixin<T extends StatefulWidget> on State<T> {
   final WeeklyViewController weeklyViewController = WeeklyViewController();

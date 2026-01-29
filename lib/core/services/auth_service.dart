@@ -4,6 +4,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:app_links/app_links.dart';
 import 'dart:async';
 import 'backend_service.dart';
+import 'package:ruby/core/services/sync_service.dart';
+import 'package:ruby/core/services/storage_service.dart';
+import 'package:ruby/core/services/chat_history_service.dart';
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();
@@ -15,6 +18,12 @@ class AuthService {
   // We need to keep track of the code verifier and a completer to notify the UI
   String? _lastCodeVerifier;
   Completer<void>? _authCompleter;
+  bool _reAuthRequired = false;
+  bool get reAuthRequired => _reAuthRequired;
+
+  void setReAuthRequired(bool required) {
+    _reAuthRequired = required;
+  }
 
   AuthService._internal() {
     _initDeepLinks();
@@ -38,6 +47,9 @@ class AuthService {
                   'https://backend.kingsaif.cloud/api/mobile-auth',
                 );
             debugPrint('Auth Successful via Deep Link!');
+            _reAuthRequired = false;
+            // Trigger sync immediately on login
+            SyncService.instance.sync();
             _authCompleter?.complete();
           } catch (e) {
             debugPrint('Auth exchange error: $e');
@@ -109,6 +121,9 @@ class AuthService {
 
   void signOut() {
     _pb.authStore.clear();
+    // Clear local data on sign out for account safety
+    StorageService.clearTasks();
+    ChatHistoryService.clearChatHistory();
   }
 
   String get token => _pb.authStore.token;

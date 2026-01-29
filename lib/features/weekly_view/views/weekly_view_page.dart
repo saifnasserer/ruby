@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
-import '../../../../core/theme/ruby_theme.dart';
-import '../../../../core/utils/date_formatter.dart';
-import '../../../../core/models/task_filter.dart';
-import '../widgets/unified_chat_view.dart';
-import '../../../presentation/widgets/chat_input.dart';
-import '../../../presentation/widgets/filter_bottom_sheet.dart';
-import '../widgets/slideable_task_input.dart';
-import '../../../presentation/screens/task_detail_screen.dart';
-import '../../../../core/models/task.dart';
-import '../../../../features/settings/controllers/settings_controller.dart';
-import '../widgets/weekly_view_modals.dart';
-import '../widgets/weekly_view_logic_mixin.dart';
-import '../../search/views/search_screen.dart';
+import 'package:ruby/core/theme/ruby_theme.dart';
+import 'package:ruby/core/utils/date_formatter.dart';
+import 'package:ruby/core/models/task_filter.dart';
+import 'package:ruby/features/weekly_view/widgets/unified_chat_view.dart';
+import 'package:ruby/presentation/widgets/chat_input.dart';
+import 'package:ruby/presentation/widgets/filter_bottom_sheet.dart';
+import 'package:ruby/features/weekly_view/widgets/slideable_task_input.dart';
+import 'package:ruby/presentation/screens/task_detail_screen.dart';
+import 'package:ruby/core/models/task.dart';
+import 'package:ruby/features/settings/controllers/settings_controller.dart';
+import 'package:ruby/features/weekly_view/widgets/weekly_view_modals.dart';
+import 'package:ruby/features/weekly_view/widgets/weekly_view_logic_mixin.dart';
+import 'package:ruby/features/search/views/search_screen.dart';
+import 'package:ruby/core/services/auth_service.dart';
+import 'package:ruby/core/utils/ruby_snackbars.dart';
+import 'package:ruby/presentation/screens/auth/login_screen.dart';
 
 class WeeklyViewPage extends StatefulWidget {
   final SettingsController? settingsController;
@@ -209,7 +212,25 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
                             );
                           },
                           onSyncTap: () async {
-                            await taskController.loadTasks();
+                            if (!AuthService.instance.isAuthenticated) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => LoginScreen(
+                                    settingsController:
+                                        widget.settingsController,
+                                  ),
+                                ),
+                              );
+                            } else {
+                              await taskController.loadTasks();
+                              if (context.mounted) {
+                                RubySnackBar.showSuccess(
+                                  context,
+                                  "تاسكاتك اتحدثت بنجاح! 🚀",
+                                );
+                              }
+                            }
                           },
                           onFilterTap: () => _showFilterBottomSheet(),
                           currentFilter: _currentFilter,

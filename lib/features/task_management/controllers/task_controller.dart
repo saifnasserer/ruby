@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../../core/models/task.dart';
-import '../../../../core/services/storage_service.dart';
-import '../../../../core/services/chat_history_service.dart';
-import '../../../../core/services/sound_service.dart';
-import '../../../../core/services/sync_service.dart';
-import '../../../../core/services/auth_service.dart';
+import 'package:ruby/core/models/task.dart';
+import 'package:ruby/core/services/storage_service.dart';
+import 'package:ruby/core/services/chat_history_service.dart';
+import 'package:ruby/core/services/sound_service.dart';
+import 'package:ruby/core/services/sync_service.dart';
 
 class TaskController extends ChangeNotifier {
   Map<String, List<Task>> _tasks = {};
@@ -21,7 +20,6 @@ class TaskController extends ChangeNotifier {
     } else {
       _subtaskDrafts[taskId] = draft;
     }
-    // No need to notify listeners since this is local UI state that doesn't affect other screens
   }
 
   /// Get the saved draft subtask for a specific task
@@ -31,17 +29,18 @@ class TaskController extends ChangeNotifier {
 
   /// Add a new task
   void addTask(String dateKey, String taskText) {
+    final now = DateTime.now();
     final task = Task(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: now.millisecondsSinceEpoch.toString(),
       text: taskText,
-      createdAt: DateTime.now(),
+      createdAt: now,
+      updatedAt: now,
       dayOfWeek: dateKey,
     );
 
     _tasks[dateKey] = _tasks[dateKey] ?? [];
     _tasks[dateKey]!.add(task);
 
-    // Add chat message for task creation
     ChatHistoryService.addMessage(
       ChatHistoryService.createTaskCreatedMessage(
         taskId: task.id,
@@ -50,20 +49,19 @@ class TaskController extends ChangeNotifier {
       ),
     );
 
-    // Save tasks after adding
     _saveTasks();
     notifyListeners();
-
-    // Sync to cloud
     SyncService.instance.createTask(task);
   }
 
   /// Add a full task object
   void addTaskObject(String dateKey, Task task) {
+    final updatedTask = task.updatedAt == null
+        ? task.copyWith(updatedAt: DateTime.now())
+        : task;
     _tasks[dateKey] = _tasks[dateKey] ?? [];
-    _tasks[dateKey]!.add(task);
+    _tasks[dateKey]!.add(updatedTask);
 
-    // Add chat message for task creation
     ChatHistoryService.addMessage(
       ChatHistoryService.createTaskCreatedMessage(
         taskId: task.id,
@@ -73,12 +71,9 @@ class TaskController extends ChangeNotifier {
       ),
     );
 
-    // Save tasks after adding
     _saveTasks();
     notifyListeners();
-
-    // Sync to cloud
-    SyncService.instance.createTask(task);
+    SyncService.instance.createTask(updatedTask);
   }
 
   /// Toggle task completion
@@ -92,16 +87,14 @@ class TaskController extends ChangeNotifier {
 
         dayTasks[taskIndex] = task.copyWith(
           isCompleted: !task.isCompleted,
+          updatedAt: DateTime.now(),
           completedAt: !task.isCompleted
               ? DateTime.now()
               : const NullableValue(null),
         );
 
-        // Add chat message for task completion/uncompletion
         if (!wasCompleted) {
-          // Task was completed - play completion sound
           SoundService.instance.playTaskCompletionSound();
-
           ChatHistoryService.addMessage(
             ChatHistoryService.createTaskCompletedMessage(
               taskId: taskId,
@@ -110,7 +103,6 @@ class TaskController extends ChangeNotifier {
             ),
           );
         } else {
-          // Task was uncompleted
           ChatHistoryService.addMessage(
             ChatHistoryService.createTaskUncompletedMessage(
               taskId: taskId,
@@ -119,22 +111,11 @@ class TaskController extends ChangeNotifier {
             ),
           );
         }
+
+        _saveTasks();
+        notifyListeners();
+        SyncService.instance.updateTask(dayTasks[taskIndex]);
       }
-    }
-
-    // Save tasks after toggling
-    _saveTasks();
-    notifyListeners();
-
-    // Sync to cloud
-    // Sync to cloud
-    if (dayTasks != null) {
-      final task = dayTasks.firstWhere(
-        (t) => t.id == taskId,
-        orElse: () =>
-            Task(id: '0', text: '', createdAt: DateTime.now(), dayOfWeek: ''),
-      );
-      if (task.id != '0') SyncService.instance.updateTask(task);
     }
   }
 
@@ -146,7 +127,6 @@ class TaskController extends ChangeNotifier {
       if (taskIndex != -1) {
         final task = dayTasks[taskIndex];
 
-        // Add chat message for task deletion before removing
         ChatHistoryService.addMessage(
           ChatHistoryService.createTaskDeletedMessage(
             taskId: taskId,
@@ -155,29 +135,16 @@ class TaskController extends ChangeNotifier {
           ),
         );
 
-        // Mark task as deleted instead of removing completely
         dayTasks[taskIndex] = task.copyWith(
           isDeleted: true,
           deletedAt: DateTime.now(),
+          updatedAt: DateTime.now(),
         );
+
+        _saveTasks();
+        notifyListeners();
+        SyncService.instance.updateTask(dayTasks[taskIndex]);
       }
-    }
-
-    // Save tasks after deleting
-    _saveTasks();
-    notifyListeners();
-
-    // Sync to cloud (delete or update as deleted?)
-    // Our SyncService.deleteTask deletes the record.
-    // If we want to keep it as "soft deleted" in cloud, we should updateTask.
-    // Task model has isDeleted. Let's updateTask to reflect isDeleted=true.
-    // Task model has isDeleted. Let's updateTask to reflect isDeleted=true.
-    if (dayTasks != null) {
-      // We need to find the task again because we modified it in the list
-      try {
-        final task = dayTasks.firstWhere((t) => t.id == taskId);
-        SyncService.instance.updateTask(task);
-      } catch (_) {}
     }
   }
 
@@ -188,9 +155,13 @@ class TaskController extends ChangeNotifier {
       final taskIndex = dayTasks.indexWhere((task) => task.id == taskId);
       if (taskIndex != -1) {
         final task = dayTasks[taskIndex];
-        dayTasks[taskIndex] = task.copyWith(isDeleted: false, deletedAt: null);
+        final restoredTask = task.copyWith(
+          isDeleted: false,
+          deletedAt: const NullableValue(null),
+          updatedAt: DateTime.now(),
+        );
+        dayTasks[taskIndex] = restoredTask;
 
-        // Add chat message for task restoration
         ChatHistoryService.addMessage(
           ChatHistoryService.createTaskRestoredMessage(
             taskId: taskId,
@@ -198,49 +169,28 @@ class TaskController extends ChangeNotifier {
             dayKey: dateKey,
           ),
         );
+
+        _saveTasks();
+        notifyListeners();
+        SyncService.instance.updateTask(restoredTask);
       }
     }
-
-    // Save tasks after restoring
-    _saveTasks();
-    notifyListeners();
   }
 
   /// Load tasks from storage
   Future<void> loadTasks() async {
     final savedTasks = await StorageService.loadTasks();
     _tasks = savedTasks;
-
-    // Check for pinned tasks and move them to today if needed
     _movePinnedTasksToToday();
-
     notifyListeners();
 
-    // Cloud Sync: Fetch tasks if authenticated
-    if (AuthService.instance.isAuthenticated) {
-      try {
-        final cloudTasks = await SyncService.instance.fetchAllTasks();
-        if (cloudTasks.isNotEmpty) {
-          for (var task in cloudTasks) {
-            final dateKey = task.dayOfWeek;
-            if (dateKey.isEmpty) continue; // Skip invalid
-
-            _tasks[dateKey] = _tasks[dateKey] ?? [];
-
-            final index = _tasks[dateKey]!.indexWhere((t) => t.id == task.id);
-            if (index != -1) {
-              _tasks[dateKey]![index] = task;
-            } else {
-              _tasks[dateKey]!.add(task);
-            }
-          }
-          _saveTasks();
-          notifyListeners();
-        }
-      } catch (e) {
-        debugPrint('Sync error: $e');
-      }
-    }
+    // Background Sync
+    SyncService.instance.sync().then((_) {
+      StorageService.loadTasks().then((newTasks) {
+        _tasks = newTasks;
+        notifyListeners();
+      });
+    });
   }
 
   /// Save tasks to storage
@@ -267,12 +217,8 @@ class TaskController extends ChangeNotifier {
   }
 
   /// Get visible tasks for a specific date INCLUDING tasks with deadlines
-  /// that should appear on this date (deadline tasks from other dates)
   List<Task> getVisibleTasksWithDeadlines(String dateKey) {
-    // Get regular tasks for this date
     final regularTasks = getVisibleTasksForDate(dateKey);
-
-    // Parse the date key
     final dateParts = dateKey.split('-');
     if (dateParts.length != 3) return regularTasks;
 
@@ -282,32 +228,21 @@ class TaskController extends ChangeNotifier {
       int.parse(dateParts[2]),
     );
 
-    // Find all tasks with deadlines that should appear on this date
     final deadlineTasks = <Task>[];
-
     _tasks.forEach((taskDateKey, tasks) {
       for (final task in tasks) {
-        if (task.isDeleted) continue;
-
-        // Skip if no deadline
-        if (task.deadlineDate == null) continue;
-
-        // Check if this task should appear on the current date
-        // It should appear if: current date >= task creation date AND current date <= deadline
+        if (task.isDeleted || task.deadlineDate == null) continue;
         final taskCreationDate = DateTime(
           task.createdAt.year,
           task.createdAt.month,
           task.createdAt.day,
         );
-
         final deadlineDate = DateTime(
           task.deadlineDate!.year,
           task.deadlineDate!.month,
           task.deadlineDate!.day,
         );
 
-        // Only show if current date is between creation and deadline
-        // AND this is not the task's original date (to avoid duplicates)
         if (currentDate.isAfter(
               taskCreationDate.subtract(const Duration(days: 1)),
             ) &&
@@ -324,7 +259,6 @@ class TaskController extends ChangeNotifier {
   /// Get days remaining until deadline for a task on a specific date
   int getDaysToDeadline(Task task, String dateKey) {
     if (task.deadlineDate == null) return 0;
-
     final dateParts = dateKey.split('-');
     if (dateParts.length != 3) return 0;
 
@@ -333,17 +267,14 @@ class TaskController extends ChangeNotifier {
       int.parse(dateParts[1]),
       int.parse(dateParts[2]),
     );
-
     final deadlineDate = DateTime(
       task.deadlineDate!.year,
       task.deadlineDate!.month,
       task.deadlineDate!.day,
     );
-
     return deadlineDate.difference(currentDate).inDays;
   }
 
-  /// Get unfinished tasks count for a specific date
   int getUnfinishedTasksCount(String dateKey) {
     final dayTasks = _tasks[dateKey] ?? [];
     return dayTasks
@@ -351,24 +282,20 @@ class TaskController extends ChangeNotifier {
         .length;
   }
 
-  /// Get completed tasks count for a specific date
   int getCompletedTasksCount(String dateKey) {
     final dayTasks = _tasks[dateKey] ?? [];
     return dayTasks.where((task) => task.isCompleted && !task.isDeleted).length;
   }
 
-  /// Get total tasks count for a specific date
   int getTotalTasksCount(String dateKey) {
     final dayTasks = _tasks[dateKey] ?? [];
     return dayTasks.where((task) => !task.isDeleted).length;
   }
 
-  /// Check if there are any tasks for a specific date
   bool hasTasksForDate(String dateKey) {
     return getVisibleTasksForDate(dateKey).isNotEmpty;
   }
 
-  /// Initialize tasks for a list of date keys
   void initializeTasksForDates(List<String> dateKeys) {
     for (String dateKey in dateKeys) {
       _tasks[dateKey] = _tasks[dateKey] ?? [];
@@ -376,14 +303,18 @@ class TaskController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Update tasks map (for migration purposes)
   void updateTasks(Map<String, List<Task>> newTasks) {
     _tasks = newTasks;
     _saveTasks();
     notifyListeners();
   }
 
-  /// Edit task text
+  void clearTasks() {
+    _tasks = {};
+    _subtaskDrafts.clear();
+    notifyListeners();
+  }
+
   void editTask(String dateKey, String taskId, String newText) {
     final dayTasks = _tasks[dateKey];
     if (dayTasks != null) {
@@ -391,13 +322,12 @@ class TaskController extends ChangeNotifier {
       if (taskIndex != -1) {
         final task = dayTasks[taskIndex];
         final oldText = task.text;
-
-        dayTasks[taskIndex] = task.copyWith(
+        final updatedTask = task.copyWith(
           text: newText,
           updatedAt: DateTime.now(),
         );
+        dayTasks[taskIndex] = updatedTask;
 
-        // Add chat message for task edit
         ChatHistoryService.addMessage(
           ChatHistoryService.createTaskEditedMessage(
             taskId: taskId,
@@ -406,40 +336,30 @@ class TaskController extends ChangeNotifier {
             dayKey: dateKey,
           ),
         );
+        _saveTasks();
+        notifyListeners();
+        SyncService.instance.updateTask(updatedTask);
       }
     }
-
-    _saveTasks();
-    notifyListeners();
-
-    // Sync
-    final task = getTask(dateKey, taskId);
-    if (task != null) SyncService.instance.updateTask(task);
   }
 
-  /// Update task text without adding a chat message (useful for real-time updates)
   void updateTaskText(String dateKey, String taskId, String newText) {
     final dayTasks = _tasks[dateKey];
     if (dayTasks != null) {
       final taskIndex = dayTasks.indexWhere((task) => task.id == taskId);
       if (taskIndex != -1) {
-        final task = dayTasks[taskIndex];
-
-        dayTasks[taskIndex] = task.copyWith(
+        final updatedTask = dayTasks[taskIndex].copyWith(
           text: newText,
           updatedAt: DateTime.now(),
         );
+        dayTasks[taskIndex] = updatedTask;
+        _saveTasks();
+        notifyListeners();
+        SyncService.instance.updateTask(updatedTask);
       }
     }
-
-    _saveTasks();
-    notifyListeners();
-    // Sync (Real-time typing might spam sync... maybe debounce? allowing for now)
-    final task = getTask(dateKey, taskId);
-    if (task != null) SyncService.instance.updateTask(task);
   }
 
-  /// Update task priority
   void updateTaskPriority(
     String dateKey,
     String taskId,
@@ -450,13 +370,12 @@ class TaskController extends ChangeNotifier {
       final taskIndex = dayTasks.indexWhere((task) => task.id == taskId);
       if (taskIndex != -1) {
         final task = dayTasks[taskIndex];
-
-        dayTasks[taskIndex] = task.copyWith(
+        final updatedTask = task.copyWith(
           priority: priority,
           updatedAt: DateTime.now(),
         );
+        dayTasks[taskIndex] = updatedTask;
 
-        // Add chat message for priority change
         ChatHistoryService.addMessage(
           ChatHistoryService.createTaskPriorityChangedMessage(
             taskId: taskId,
@@ -465,42 +384,30 @@ class TaskController extends ChangeNotifier {
             dayKey: dateKey,
           ),
         );
+        _saveTasks();
+        notifyListeners();
+        SyncService.instance.updateTask(updatedTask);
       }
     }
-
-    _saveTasks();
-    notifyListeners();
-    // Sync
-    final task = getTask(dateKey, taskId);
-    if (task != null) SyncService.instance.updateTask(task);
   }
 
-  /// Toggle task pin status
   void toggleTaskPin(String dateKey, String taskId) {
     final dayTasks = _tasks[dateKey];
     if (dayTasks != null) {
       final taskIndex = dayTasks.indexWhere((task) => task.id == taskId);
       if (taskIndex != -1) {
-        final task = dayTasks[taskIndex];
-
-        dayTasks[taskIndex] = task.copyWith(
-          isPinned: !task.isPinned,
+        final updatedTask = dayTasks[taskIndex].copyWith(
+          isPinned: !dayTasks[taskIndex].isPinned,
           updatedAt: DateTime.now(),
         );
-
-        // Add chat message for pin change (optional but good for consistency)
-        // For now we'll skip the chat message unless requested
+        dayTasks[taskIndex] = updatedTask;
+        _saveTasks();
+        notifyListeners();
+        SyncService.instance.updateTask(updatedTask);
       }
     }
-
-    _saveTasks();
-    notifyListeners();
-    // Sync
-    final task = getTask(dateKey, taskId);
-    if (task != null) SyncService.instance.updateTask(task);
   }
 
-  /// Update task subtasks
   void updateTaskSubtasks(
     String dateKey,
     String taskId,
@@ -510,34 +417,30 @@ class TaskController extends ChangeNotifier {
     if (dayTasks != null) {
       final taskIndex = dayTasks.indexWhere((task) => task.id == taskId);
       if (taskIndex != -1) {
-        dayTasks[taskIndex] = dayTasks[taskIndex].copyWith(
+        final updatedTask = dayTasks[taskIndex].copyWith(
           subtasks: subtasks,
           updatedAt: DateTime.now(),
         );
-
+        dayTasks[taskIndex] = updatedTask;
         _saveTasks();
         notifyListeners();
-
-        // Sync
-        SyncService.instance.updateTask(dayTasks[taskIndex]);
+        SyncService.instance.updateTask(updatedTask);
       }
     }
   }
 
-  /// Update task category
   void updateTaskCategory(String dateKey, String taskId, String? category) {
     final dayTasks = _tasks[dateKey];
     if (dayTasks != null) {
       final taskIndex = dayTasks.indexWhere((task) => task.id == taskId);
       if (taskIndex != -1) {
         final task = dayTasks[taskIndex];
-
-        dayTasks[taskIndex] = task.copyWith(
+        final updatedTask = task.copyWith(
           category: category,
           updatedAt: DateTime.now(),
         );
+        dayTasks[taskIndex] = updatedTask;
 
-        // Add chat message for category change
         ChatHistoryService.addMessage(
           ChatHistoryService.createTaskCategoryChangedMessage(
             taskId: taskId,
@@ -546,79 +449,60 @@ class TaskController extends ChangeNotifier {
             dayKey: dateKey,
           ),
         );
+        _saveTasks();
+        notifyListeners();
+        SyncService.instance.updateTask(updatedTask);
       }
     }
-
-    _saveTasks();
-    notifyListeners();
-    // Sync
-    final task = getTask(dateKey, taskId);
-    if (task != null) SyncService.instance.updateTask(task);
   }
 
-  /// Update task tags
   void updateTaskTags(String dateKey, String taskId, List<String> tags) {
     final dayTasks = _tasks[dateKey];
     if (dayTasks != null) {
       final taskIndex = dayTasks.indexWhere((task) => task.id == taskId);
       if (taskIndex != -1) {
-        final task = dayTasks[taskIndex];
-
-        dayTasks[taskIndex] = task.copyWith(
+        final updatedTask = dayTasks[taskIndex].copyWith(
           tags: tags,
           updatedAt: DateTime.now(),
         );
+        dayTasks[taskIndex] = updatedTask;
+        _saveTasks();
+        notifyListeners();
+        SyncService.instance.updateTask(updatedTask);
       }
     }
-
-    _saveTasks();
-    notifyListeners();
-    // Sync
-    final task = getTask(dateKey, taskId);
-    if (task != null) SyncService.instance.updateTask(task);
   }
 
-  /// Update task deadline
   void updateTaskDeadline(String dateKey, String taskId, DateTime? deadline) {
     final dayTasks = _tasks[dateKey];
     if (dayTasks != null) {
       final taskIndex = dayTasks.indexWhere((task) => task.id == taskId);
       if (taskIndex != -1) {
-        final task = dayTasks[taskIndex];
-
-        dayTasks[taskIndex] = task.copyWith(
+        final updatedTask = dayTasks[taskIndex].copyWith(
           deadlineDate: deadline ?? const NullableValue(null),
           updatedAt: DateTime.now(),
         );
+        dayTasks[taskIndex] = updatedTask;
+        _saveTasks();
+        notifyListeners();
+        SyncService.instance.updateTask(updatedTask);
       }
     }
-
-    _saveTasks();
-    notifyListeners();
-    // Sync
-    final task = getTask(dateKey, taskId);
-    if (task != null) SyncService.instance.updateTask(task);
   }
 
-  /// Move task to another day
   void moveTask(String fromDateKey, String toDateKey, String taskId) {
     final fromDayTasks = _tasks[fromDateKey];
     if (fromDayTasks != null) {
       final taskIndex = fromDayTasks.indexWhere((task) => task.id == taskId);
       if (taskIndex != -1) {
         final task = fromDayTasks[taskIndex];
-
-        // Remove from original day
         fromDayTasks.removeAt(taskIndex);
 
-        // Parse the target date from toDateKey (format: "YYYY-MM-DD")
         final dateParts = toDateKey.split('-');
-        DateTime newCreatedAt = task.createdAt; // fallback
+        DateTime newCreatedAt = task.createdAt;
 
         if (dateParts.length == 3) {
           try {
-            // If task is pinned, set time to 00:01:00 to be at top of list
-            // Otherwise keep original time
             final hour = task.isPinned ? 0 : task.createdAt.hour;
             final minute = task.isPinned ? 1 : task.createdAt.minute;
             final second = task.isPinned ? 0 : task.createdAt.second;
@@ -631,22 +515,17 @@ class TaskController extends ChangeNotifier {
               minute,
               second,
             );
-          } catch (e) {
-            print('Error parsing date: $e');
-          }
+          } catch (_) {}
         }
 
-        // Add to new day with updated dayOfWeek AND createdAt
         _tasks[toDateKey] = _tasks[toDateKey] ?? [];
-        _tasks[toDateKey]!.add(
-          task.copyWith(
-            dayOfWeek: toDateKey,
-            createdAt: newCreatedAt,
-            updatedAt: DateTime.now(),
-          ),
+        final updatedTask = task.copyWith(
+          dayOfWeek: toDateKey,
+          createdAt: newCreatedAt,
+          updatedAt: DateTime.now(),
         );
+        _tasks[toDateKey]!.add(updatedTask);
 
-        // Add chat message for task move
         ChatHistoryService.addMessage(
           ChatHistoryService.createTaskMovedMessage(
             taskId: taskId,
@@ -655,36 +534,21 @@ class TaskController extends ChangeNotifier {
             toDayKey: toDateKey,
           ),
         );
+        _saveTasks();
+        notifyListeners();
+        SyncService.instance.updateTask(updatedTask);
       }
     }
-
-    _saveTasks();
-    notifyListeners();
-    // Sync (Move = Update in our logic because ID stays same, just dayOfWeek changes)
-    final task = getTask(toDateKey, taskId);
-    if (task != null) SyncService.instance.updateTask(task);
   }
 
-  /// Check for pinned tasks in past days and move them to today
   void _movePinnedTasksToToday() {
     final now = DateTime.now();
     final todayKey =
         "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
-
-    // We need to collect tasks to move first to avoid modifying the map while iterating
-    final tasksToMove = <Map<String, dynamic>>[]; // {fromKey, taskId}
+    final tasksToMove = <Map<String, dynamic>>[];
 
     _tasks.forEach((dateKey, tasks) {
-      // Skip today and future dates
       if (dateKey == todayKey) return;
-
-      // strict comparison to ensure we only move from PAST dates
-      // (though arguably moving from future back to today if pinned might be desired?
-      // The user requirement says "by each start of a new date the tasks with the flag pinned thier dates should be of that new day")
-      // So if I pin a task for tomorrow, when tomorrow comes, it is already in "today".
-      // If I pin a task for yesterday, when I open the app today, it should move to today.
-      // So we only care about dates != today.
-
       for (final task in tasks) {
         if (task.isPinned && !task.isDeleted && !task.isCompleted) {
           tasksToMove.add({'fromKey': dateKey, 'taskId': task.id});
@@ -695,9 +559,6 @@ class TaskController extends ChangeNotifier {
     for (final moveInfo in tasksToMove) {
       moveTask(moveInfo['fromKey'], todayKey, moveInfo['taskId']);
     }
-
-    if (tasksToMove.isNotEmpty) {
-      _saveTasks();
-    }
+    if (tasksToMove.isNotEmpty) _saveTasks();
   }
 }

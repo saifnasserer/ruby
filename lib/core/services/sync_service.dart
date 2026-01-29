@@ -1,143 +1,361 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:pocketbase/pocketbase.dart';
-import '../models/task.dart';
-import 'backend_service.dart';
-import 'auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ruby/core/models/task.dart';
+import 'package:ruby/core/services/backend_service.dart';
+import 'package:ruby/core/services/auth_service.dart';
+import 'package:ruby/core/services/storage_service.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'dart:async';
 
 class SyncService {
   static final SyncService _instance = SyncService._internal();
   static SyncService get instance => _instance;
 
-  SyncService._internal();
+  static const String _lastSyncKey = 'last_sync_time';
+  DateTime? _lastSyncTime;
+  DateTime? get lastSyncTime => _lastSyncTime;
+
+  SyncService._internal() {
+    _initConnectivityListener();
+    _loadLastSyncTime();
+  }
+
+  Future<void> _loadLastSyncTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final timestamp = prefs.getString(_lastSyncKey);
+    if (timestamp != null) {
+      _lastSyncTime = DateTime.tryParse(timestamp);
+    }
+  }
+
+  Future<void> _updateLastSyncTime() async {
+    _lastSyncTime = DateTime.now();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastSyncKey, _lastSyncTime!.toIso8601String());
+  }
+
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+
+  void _initConnectivityListener() {
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      results,
+    ) {
+      // Check if we just became online
+      final hasConnection = results.any(
+        (result) => result != ConnectivityResult.none,
+      );
+      if (hasConnection && AuthService.instance.isAuthenticated) {
+        debugPrint('SyncService: Network recovered, triggering auto-sync.');
+        sync();
+      }
+    });
+  }
+
+  void dispose() {
+    _connectivitySubscription?.cancel();
+  }
 
   PocketBase get _pb => BackendService.instance.pb;
 
   // Collection name
   static const String _collectionName = 'tasks';
+  static const String _offlineQueueKey = 'sync_offline_queue';
 
-  /// Sync a newly created task to Cloud
+  bool _isSyncing = false;
+  bool get isSyncing => _isSyncing;
+
+  /// Public wrapper for creating a task
   Future<void> createTask(Task task) async {
-    if (!AuthService.instance.isAuthenticated) return;
-
-    try {
-      final body = _taskToRecordMap(task);
-      body['user'] = AuthService.instance.currentUser?.id;
-
-      List<http.MultipartFile> files = [];
-      if (task.audioPath != null) {
-        final file = File(task.audioPath!);
-        if (await file.exists()) {
-          files.add(await http.MultipartFile.fromPath('audio', file.path));
-        }
-      }
-
-      await _pb.collection(_collectionName).create(body: body, files: files);
-      debugPrint('SyncService: Task created ${task.id}');
-    } catch (e) {
-      debugPrint('SyncService: Error creating task: $e');
-      // TODO: Queue for offline sync
-    }
+    await _uploadTask(task);
   }
 
-  /// Sync task updates to Cloud
+  /// Public wrapper for updating a task
   Future<void> updateTask(Task task) async {
-    if (!AuthService.instance.isAuthenticated) return;
-
     try {
-      // Find record by some ID mapping.
-      // Ideally, Task.id should match Record.id.
-      // If Task.id is a timestamp (legacy), we need to search or map it.
-      // For now, assume we find via filter or store PB ID in local Task.
-      // Since we don't have PB ID in Task yet, we'll try to find by 'taskId' field if we add one,
-      // or filter by the legacy ID stored in a custom field.
-
-      // Strategy: Use a filter to find the record where `data.localId` == task.id
+      if (!AuthService.instance.isAuthenticated) {
+        await _addToOfflineQueue(task.id, 'upsert');
+        return;
+      }
       final records = await _pb
           .collection(_collectionName)
           .getList(filter: 'local_id = "${task.id}"');
-
-      if (records.items.isNotEmpty) {
-        final recordId = records.items.first.id;
-        final body = _taskToRecordMap(task);
-
-        // Handle audio update if changed? (Complex, skip for MVP unless needed)
-
-        await _pb.collection(_collectionName).update(recordId, body: body);
-        debugPrint('SyncService: Task updated ${task.id}');
-      } else {
-        // If not found, create it (healing)
-        await createTask(task);
-      }
+      await _uploadTask(
+        task,
+        remoteId: records.items.isNotEmpty ? records.items.first.id : null,
+      );
     } catch (e) {
-      debugPrint('SyncService: Error updating task: $e');
+      await _addToOfflineQueue(task.id, 'upsert');
     }
   }
 
-  /// Sync task deletion
+  /// Public wrapper for deleting a task
   Future<void> deleteTask(String taskId) async {
-    if (!AuthService.instance.isAuthenticated) return;
-
     try {
-      final records = await _pb
-          .collection(_collectionName)
-          .getList(filter: 'local_id = "$taskId"');
-
-      if (records.items.isNotEmpty) {
-        await _pb.collection(_collectionName).delete(records.items.first.id);
-        debugPrint('SyncService: Task deleted $taskId');
+      if (!AuthService.instance.isAuthenticated) {
+        await _addToOfflineQueue(taskId, 'delete');
+        return;
       }
+      await _deleteTaskRemotely(taskId);
     } catch (e) {
-      debugPrint('SyncService: Error deleting task: $e');
+      await _addToOfflineQueue(taskId, 'delete');
     }
   }
 
-  /// Fetch all tasks from Cloud
-  Future<List<Task>> fetchAllTasks() async {
-    if (!AuthService.instance.isAuthenticated) return [];
+  /// Main entry point for syncing everything
+  Future<void> sync() async {
+    if (!AuthService.instance.isAuthenticated || _isSyncing) return;
 
+    _isSyncing = true;
     try {
-      final records = await _pb.collection(_collectionName).getFullList();
-      return records.map((r) => _recordToTask(r)).toList();
+      debugPrint('SyncService: Starting full sync...');
+
+      // 1. Process offline queue first
+      await _processOfflineQueue();
+
+      // 2. Fetch remote tasks
+      final userId = AuthService.instance.currentUser?.id;
+      final remoteRecords = await _pb
+          .collection(_collectionName)
+          .getFullList(sort: '-updated', filter: 'user = "$userId"');
+
+      // 3. Get local tasks
+      final localTasksMap = await StorageService.loadTasks();
+      final List<Task> allLocalTasks = [];
+      localTasksMap.values.forEach((list) => allLocalTasks.addAll(list));
+
+      // 4. Reconcile
+      await _reconcile(allLocalTasks, remoteRecords, localTasksMap);
+      await _updateLastSyncTime();
+
+      debugPrint('SyncService: Sync completed successfully.');
     } catch (e) {
-      debugPrint('SyncService: Error fetching tasks: $e');
-      return [];
+      debugPrint('SyncService: Sync failed: $e');
+    } finally {
+      _isSyncing = false;
+    }
+  }
+
+  /// Reconcile local and remote states
+  Future<void> _reconcile(
+    List<Task> localTasks,
+    List<RecordModel> remoteRecords,
+    Map<String, List<Task>> localTasksMap,
+  ) async {
+    bool hasLocalChanges = false;
+
+    // Map remote records by local_id for fast lookup
+    final remoteMap = {
+      for (var r in remoteRecords) r.data['local_id'] as String: r,
+    };
+
+    // 1. Check local tasks against remote
+    for (final task in localTasks) {
+      final remote = remoteMap[task.id];
+      if (remote == null) {
+        // Task exists locally but not on server -> Upload
+        await _uploadTask(task);
+      } else {
+        // Task exists in both -> Compare updatedAt
+        final remoteUpdatedAt = DateTime.parse(remote.updated);
+        final localUpdatedAt = task.updatedAt ?? task.createdAt;
+
+        if (localUpdatedAt.isAfter(
+          remoteUpdatedAt.add(const Duration(seconds: 1)),
+        )) {
+          // Local is newer -> Update remote
+          await _uploadTask(task, remoteId: remote.id);
+        } else if (remoteUpdatedAt.isAfter(
+          localUpdatedAt.add(const Duration(seconds: 1)),
+        )) {
+          // Remote is newer -> Update local
+          _updateLocalTaskInMap(localTasksMap, _recordToTask(remote));
+          hasLocalChanges = true;
+        }
+      }
+      // Remove from remote map to see what's left (exclusive remotes)
+      remoteMap.remove(task.id);
+    }
+
+    // 2. Any records left in remoteMap don't exist locally -> Download
+    for (final remote in remoteMap.values) {
+      final remoteTask = _recordToTask(remote);
+      // Download remote tasks, even those marked as deleted (to keep local state in sync)
+      debugPrint('SyncService: Downloading remote task ${remoteTask.id}');
+      _updateLocalTaskInMap(localTasksMap, remoteTask);
+      hasLocalChanges = true;
+    }
+
+    if (hasLocalChanges) {
+      // Reload from storage to avoid overwriting changes that happened while syncing
+      final finalTasksMap = await StorageService.loadTasks();
+      for (final list in localTasksMap.values) {
+        for (final task in list) {
+          _updateLocalTaskInMap(finalTasksMap, task);
+        }
+      }
+      await StorageService.saveTasks(finalTasksMap);
+    }
+  }
+
+  void _updateLocalTaskInMap(Map<String, List<Task>> map, Task task) {
+    final list = map[task.dayOfWeek] ?? [];
+    final index = list.indexWhere((t) => t.id == task.id);
+    if (index != -1) {
+      list[index] = task;
+    } else {
+      list.add(task);
+    }
+    map[task.dayOfWeek] = list;
+  }
+
+  /// Upload or Update a task to Cloud
+  Future<void> _uploadTask(Task task, {String? remoteId}) async {
+    try {
+      if (!AuthService.instance.isAuthenticated) {
+        await _addToOfflineQueue(task.id, 'upsert');
+        return;
+      }
+
+      final body = _taskToRecordMap(task);
+      final userId = AuthService.instance.currentUser?.id;
+      if (userId == null) {
+        debugPrint('SyncService: Skipping upload. User ID is null.');
+        return;
+      }
+      body['user'] = userId;
+
+      if (remoteId != null) {
+        await _pb.collection(_collectionName).update(remoteId, body: body);
+      } else {
+        await _pb.collection(_collectionName).create(body: body);
+      }
+    } catch (e) {
+      debugPrint('SyncService: Error uploading task ${task.id}: $e');
+      await _addToOfflineQueue(task.id, 'upsert');
+    }
+  }
+
+  /// Queue a change for later sync
+  Future<void> _addToOfflineQueue(String taskId, String action) async {
+    final prefs = await SharedPreferences.getInstance();
+    final queueJson = prefs.getString(_offlineQueueKey) ?? '[]';
+    final List<dynamic> queue = jsonDecode(queueJson);
+
+    final itemToRemove = queue.indexWhere((item) => item['taskId'] == taskId);
+    if (itemToRemove != -1) {
+      final existingAction = queue[itemToRemove]['action'];
+      // If we are deleting something that was only just created offline,
+      // we can just remove it from the queue entirely.
+      if (action == 'delete' && existingAction == 'upsert') {
+        queue.removeAt(itemToRemove);
+        await prefs.setString(_offlineQueueKey, jsonEncode(queue));
+        return;
+      }
+      queue.removeAt(itemToRemove);
+    }
+
+    queue.add({
+      'taskId': taskId,
+      'action': action,
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+
+    await prefs.setString(_offlineQueueKey, jsonEncode(queue));
+  }
+
+  Future<void> _processOfflineQueue() async {
+    final prefs = await SharedPreferences.getInstance();
+    final queueJson = prefs.getString(_offlineQueueKey);
+    if (queueJson == null || queueJson == '[]') return;
+
+    debugPrint('SyncService: Processing offline queue...');
+    final List<dynamic> queue = jsonDecode(queueJson);
+    final localTasksMap = await StorageService.loadTasks();
+
+    for (final item in List.from(queue)) {
+      final taskId = item['taskId'];
+      final action = item['action'];
+
+      try {
+        if (action == 'delete') {
+          await _deleteTaskRemotely(taskId);
+        } else {
+          Task? task;
+          for (var list in localTasksMap.values) {
+            final found = list.where((t) => t.id == taskId);
+            if (found.isNotEmpty) {
+              task = found.first;
+              break;
+            }
+          }
+          if (task != null) {
+            final userId = AuthService.instance.currentUser?.id;
+            final records = await _pb
+                .collection(_collectionName)
+                .getList(filter: 'local_id = "$taskId" && user = "$userId"');
+            await _uploadTask(
+              task,
+              remoteId: records.items.isNotEmpty
+                  ? records.items.first.id
+                  : null,
+            );
+          }
+        }
+        queue.remove(item);
+      } catch (e) {
+        debugPrint('SyncService: Failed to process queue item $taskId: $e');
+        // Continue to next item instead of breaking
+      }
+    }
+    await prefs.setString(_offlineQueueKey, jsonEncode(queue));
+  }
+
+  Future<void> _deleteTaskRemotely(String taskId) async {
+    final userId = AuthService.instance.currentUser?.id;
+    final records = await _pb
+        .collection(_collectionName)
+        .getList(filter: 'local_id = "$taskId" && user = "$userId"');
+    if (records.items.isNotEmpty) {
+      // Soft deletion: update is_deleted to true
+      await _pb
+          .collection(_collectionName)
+          .update(records.items.first.id, body: {'is_deleted': true});
     }
   }
 
   // --- Mappers ---
 
   Map<String, dynamic> _taskToRecordMap(Task task) {
-    // We store the main fields and a big 'data' JSON for the rest
     return {
-      'local_id': task.id, // Important for mapping
+      'local_id': task.id,
       'text': task.text,
       'is_completed': task.isCompleted,
       'day_of_week': task.dayOfWeek,
-      'data': jsonEncode(task.toJson()), // Backup/Full data
+      'is_deleted': task.isDeleted,
+      'data': jsonEncode(task.toJson()),
     };
   }
 
   Task _recordToTask(RecordModel record) {
-    // Prefer the 'data' JSON if available as it has everything
     final data = record.data['data'];
     if (data != null && data is String) {
       try {
         final json = jsonDecode(data);
-        // Verify ID mapping?
-        return Task.fromJson(json);
+        return Task.fromJson(
+          json,
+        ).copyWith(updatedAt: DateTime.parse(record.updated));
       } catch (_) {}
     }
-    // Fallback or if data field missing
-    // Construct minimal task
     return Task(
       id: record.data['local_id'] ?? record.id,
       text: record.data['text'] ?? '',
       createdAt: DateTime.parse(record.created),
+      updatedAt: DateTime.parse(record.updated),
       dayOfWeek: record.data['day_of_week'] ?? '',
       isCompleted: record.data['is_completed'] ?? false,
+      isDeleted: record.data['is_deleted'] ?? false,
     );
   }
 }

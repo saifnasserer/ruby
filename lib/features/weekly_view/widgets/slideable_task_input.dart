@@ -7,6 +7,7 @@ import '../../settings/views/settings_screen.dart';
 import '../../settings/controllers/settings_controller.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../presentation/screens/auth/login_screen.dart';
+import '../../../presentation/screens/profile/profile_screen.dart';
 
 class SlideableTaskInput extends StatefulWidget {
   final String dayOfWeek;
@@ -194,6 +195,24 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
         children: [
           _buildQuickActionButton(
             context,
+            icon: Icons.person_outline_rounded,
+            color: RubyTheme.surfaceVariant(context),
+            label: 'الملف الشخصي',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProfileScreen(
+                    settingsController: widget.settingsController,
+                  ),
+                ),
+              );
+              _animateTo(0, 0);
+            },
+          ),
+          SizedBox(width: 15),
+          _buildQuickActionButton(
+            context,
             icon: Icons.settings,
             color: RubyTheme.surfaceVariant(context),
             label: 'الإعدادات',
@@ -268,14 +287,14 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
                 ).showSnackBar(SnackBar(content: Text('جاري المزامنة...')));
                 if (widget.onSyncTap != null) {
                   await widget.onSyncTap!();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('تمت المزامنة بنجاح!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }
+                  // if (context.mounted) {
+                  //   ScaffoldMessenger.of(context).showSnackBar(
+                  //     SnackBar(
+                  //       content: Text('تمت المزامنة بنجاح!'),
+                  //       backgroundColor: Colors.green,
+                  //     ),
+                  //   );
+                  // }
                 }
               } else {
                 Navigator.of(context).push(
