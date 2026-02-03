@@ -115,6 +115,13 @@ class SyncService {
       return;
     }
 
+    // Double check session validity before starting
+    final isSessionValid = await AuthService.instance.validateSession();
+    if (!isSessionValid) {
+      debugPrint('SyncService: Skipping sync - Session is invalid.');
+      return;
+    }
+
     _isSyncing = true;
     try {
       debugPrint('SyncService: Starting full sync...');
@@ -134,7 +141,9 @@ class SyncService {
       // 3. Get local tasks
       final localTasksMap = await StorageService.loadTasks();
       final List<Task> allLocalTasks = [];
-      localTasksMap.values.forEach((list) => allLocalTasks.addAll(list));
+      for (var list in localTasksMap.values) {
+        allLocalTasks.addAll(list);
+      }
 
       // 4. Reconcile
       await _reconcile(allLocalTasks, remoteRecords, localTasksMap);
@@ -268,7 +277,12 @@ class SyncService {
       }
     } catch (e) {
       debugPrint('SyncService: Error uploading task ${task.id}: $e');
-      await _addToOfflineQueue(task.id, 'upsert');
+      if (e is ClientException &&
+          (e.statusCode == 401 || e.statusCode == 403)) {
+        AuthService.instance.setReAuthRequired(true);
+      } else {
+        await _addToOfflineQueue(task.id, 'upsert');
+      }
     }
   }
 
@@ -375,14 +389,42 @@ class SyncService {
 
   Task _recordToTask(RecordModel record) {
     final data = record.data['data'];
-    if (data != null && data is String) {
+    Map<String, dynamic>? json;
+
+    if (data != null) {
+      if (data is String) {
+        try {
+          json = jsonDecode(data) as Map<String, dynamic>;
+        } catch (e) {
+          debugPrint(
+            'SyncService: Error decoding data string for task ${record.data['local_id']}: $e',
+          );
+        }
+      } else if (data is Map<String, dynamic>) {
+        json = data;
+      } else {
+        debugPrint(
+          'SyncService: Unknown data type for task ${record.data['local_id']}: ${data.runtimeType}',
+        );
+      }
+    }
+
+    if (json != null) {
       try {
-        final json = jsonDecode(data);
         return Task.fromJson(
           json,
         ).copyWith(updatedAt: DateTime.parse(record.updated));
-      } catch (_) {}
+      } catch (e) {
+        debugPrint(
+          'SyncService: Error parsing task from JSON for task ${record.data['local_id']}: $e',
+        );
+      }
     }
+
+    // Fallback: Create from top-level record fields if possible
+    debugPrint(
+      'SyncService: Falling back to basic task for ${record.data['local_id']}',
+    );
     return Task(
       id: record.data['local_id'] ?? record.id,
       text: record.data['text'] ?? '',

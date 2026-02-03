@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:pocketbase/pocketbase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class PersistedAuthStore extends AuthStore {
   final SharedPreferences _prefs;

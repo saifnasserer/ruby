@@ -76,11 +76,13 @@ class Subtask {
 
   factory Subtask.fromJson(Map<String, dynamic> json) {
     return Subtask(
-      id: json['id'] as String,
-      text: json['text'] as String,
-      description: json['description'] as String?,
+      id: (json['id'] ?? '').toString(),
+      text: (json['text'] ?? '').toString(),
+      description: json['description']?.toString(),
       isCompleted: json['isCompleted'] as bool? ?? false,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
+          : DateTime.now(),
     );
   }
 }
@@ -225,25 +227,29 @@ class Task {
 
   factory Task.fromJson(Map<String, dynamic> json) {
     return Task(
-      id: json['id'],
-      text: json['text'],
-      createdAt: DateTime.parse(json['createdAt']),
+      id: (json['id'] ?? '').toString(),
+      text: (json['text'] ?? '').toString(),
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
+          : DateTime.now(),
       isCompleted: json['isCompleted'] ?? false,
       completedAt: json['completedAt'] != null
-          ? DateTime.parse(json['completedAt'])
+          ? DateTime.tryParse(json['completedAt'].toString())
           : null,
-      dayOfWeek: json['dayOfWeek'],
+      dayOfWeek: (json['dayOfWeek'] ?? '').toString(),
       isMigrated: json['isMigrated'] ?? false,
-      originalDayOfWeek: json['originalDayOfWeek'],
+      originalDayOfWeek: json['originalDayOfWeek']?.toString(),
       isDeleted: json['isDeleted'] ?? false,
       deletedAt: json['deletedAt'] != null
-          ? DateTime.parse(json['deletedAt'])
+          ? DateTime.tryParse(json['deletedAt'].toString())
           : null,
-      priority: TaskPriority.fromJson(json['priority'] as String?),
-      category: json['category'] as String?,
-      tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
+      priority: TaskPriority.fromJson(json['priority']?.toString()),
+      category: json['category']?.toString(),
+      tags:
+          (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
+          [],
       updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'] as String)
+          ? DateTime.tryParse(json['updatedAt'].toString())
           : null,
       subtasks:
           (json['subtasks'] as List<dynamic>?)
@@ -251,10 +257,12 @@ class Task {
               .toList() ??
           [],
       deadlineDate: json['deadlineDate'] != null
-          ? DateTime.parse(json['deadlineDate'] as String)
+          ? DateTime.tryParse(json['deadlineDate'].toString())
           : null,
-      audioPath: json['audioPath'] as String?,
-      waveformData: (json['waveformData'] as List<dynamic>?)?.cast<double>(),
+      audioPath: json['audioPath']?.toString(),
+      waveformData: (json['waveformData'] as List<dynamic>?)
+          ?.map((e) => (e as num).toDouble())
+          .toList(),
       dailyProgress:
           (json['dailyProgress'] as Map<String, dynamic>?)?.map(
             (key, value) => MapEntry(key, value.toString()),

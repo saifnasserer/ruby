@@ -108,24 +108,33 @@ class Ruby extends StatelessWidget {
           home: StreamBuilder(
             stream: AuthService.instance.authStateChange,
             builder: (context, snapshot) {
-              final auth = AuthService.instance;
+              return StreamBuilder<bool>(
+                stream: AuthService.instance.reAuthStream,
+                initialData: AuthService.instance.reAuthRequired,
+                builder: (context, reAuthSnapshot) {
+                  final auth = AuthService.instance;
+                  final reAuthRequired = reAuthSnapshot.data ?? false;
 
-              // 1. Show app if authenticated
-              if (auth.isAuthenticated) {
-                // Trigger auto-sync on app open when authenticated
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  SyncService.instance.sync();
-                });
-                return WeeklyViewPage(settingsController: settingsController);
-              }
+                  // 1. Show app if authenticated and re-auth NOT required
+                  if (auth.isAuthenticated && !reAuthRequired) {
+                    // Trigger auto-sync on app open when authenticated
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      SyncService.instance.sync();
+                    });
+                    return WeeklyViewPage(
+                      settingsController: settingsController,
+                    );
+                  }
 
-              // 2. If not authenticated, decide whether to show login or app
-              if (settingsController.isFirstLaunch || auth.reAuthRequired) {
-                return LoginScreen(settingsController: settingsController);
-              }
+                  // 2. If not authenticated OR re-auth required, show login
+                  if (settingsController.isFirstLaunch || reAuthRequired) {
+                    return LoginScreen(settingsController: settingsController);
+                  }
 
-              // Default to app (guest mode essentially)
-              return WeeklyViewPage(settingsController: settingsController);
+                  // Default to app (guest mode essentially)
+                  return WeeklyViewPage(settingsController: settingsController);
+                },
+              );
             },
           ),
         );

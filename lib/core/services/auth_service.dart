@@ -18,11 +18,18 @@ class AuthService {
   // We need to keep track of the code verifier and a completer to notify the UI
   String? _lastCodeVerifier;
   Completer<void>? _authCompleter;
+
+  final _reAuthSubject = StreamController<bool>.broadcast();
   bool _reAuthRequired = false;
   bool get reAuthRequired => _reAuthRequired;
 
+  Stream<bool> get reAuthStream => _reAuthSubject.stream;
+
   void setReAuthRequired(bool required) {
-    _reAuthRequired = required;
+    if (_reAuthRequired != required) {
+      _reAuthRequired = required;
+      _reAuthSubject.add(required);
+    }
   }
 
   AuthService._internal() {
@@ -130,9 +137,33 @@ class AuthService {
 
   void signOut() {
     _pb.authStore.clear();
+    setReAuthRequired(false);
     // Clear local data on sign out for account safety
     StorageService.clearTasks();
     ChatHistoryService.clearChatHistory();
+  }
+
+  Future<bool> validateSession() async {
+    if (!isAuthenticated) return false;
+    try {
+      // Just try to fetch auth methods as a lightweight check
+      await _pb.collection('users').listAuthMethods();
+      return true;
+    } catch (e) {
+      debugPrint('SyncService: Session validation failed: $e');
+      if (e is ClientException) {
+        if (e.statusCode == 401 || e.statusCode == 403) {
+          setReAuthRequired(true);
+          return false;
+        }
+        if (e.statusCode == 404) {
+          debugPrint(
+            'CRITICAL: PocketBase auth endpoint returned 404. Check server URL or SSL certificate.',
+          );
+        }
+      }
+      return false;
+    }
   }
 
   String get token => _pb.authStore.token;

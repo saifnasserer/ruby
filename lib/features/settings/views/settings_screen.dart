@@ -4,6 +4,9 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/ruby_theme.dart';
 import '../controllers/settings_controller.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/services/backend_service.dart';
+import '../../../core/utils/ruby_snackbars.dart';
+import '../../../presentation/screens/auth/login_screen.dart' show LoginScreen;
 
 class SettingsScreen extends StatelessWidget {
   final SettingsController settingsController;
@@ -76,10 +79,10 @@ class SettingsScreen extends StatelessWidget {
                         // SizedBox(height: 16),
                         _buildControlGrid(context, isDark: isDark),
 
-                        // SizedBox(height: 32),
-                        // _buildSectionLabel(context, 'الحساب'),
+                        _buildSectionLabel(context, 'الحساب والتزامن'),
+                        SizedBox(height: 16),
+                        _buildAccountSection(context),
 
-                        // _buildSignOutButton(context),
                         SizedBox(height: 48), // Bottom padding
                       ],
                     ),
@@ -90,6 +93,75 @@ class SettingsScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildAccountSection(BuildContext context) {
+    final auth = AuthService.instance;
+
+    return Column(
+      children: [
+        if (auth.isAuthenticated)
+          _buildGridControlCard(
+            context,
+            icon: Icons.logout_rounded,
+            label: 'تسجيل الخروج',
+            isActive: false,
+            activeColor: Colors.redAccent,
+            iconColor: Colors.redAccent,
+            onTap: () {
+              auth.signOut();
+              RubySnackBar.showSuccess(context, "خرجت بنجاح!");
+            },
+          )
+        else
+          _buildGridControlCard(
+            context,
+            icon: Icons.login_rounded,
+            label: 'تسجيل الدخول',
+            isActive: true,
+            activeColor: RubyTheme.priorityLow,
+            iconColor: RubyTheme.priorityLow,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      LoginScreen(settingsController: settingsController),
+                ),
+              );
+            },
+          ),
+        SizedBox(height: 16),
+        _buildGridControlCard(
+          context,
+          icon: Icons.network_check_rounded,
+          label: 'فحص الاتصال',
+          isActive: false,
+          activeColor: Colors.blueAccent,
+          iconColor: Colors.blueAccent,
+          onTap: () async {
+            RubySnackBar.showInfo(context, "بنشوف الاتصال...");
+            try {
+              final isOk = await BackendService.instance.isConnected();
+              if (isOk) {
+                RubySnackBar.showSuccess(context, "كله تمام! السيرفر شغال. ✅");
+              } else {
+                RubySnackBar.showError(context, "مش قادر أوصل للسيرفر. ❌");
+              }
+            } catch (e) {
+              if (e.toString().contains('cert')) {
+                RubySnackBar.showError(
+                  context,
+                  "مشكلة في شهادة الأمان (SSL). 🔐",
+                );
+              } else {
+                RubySnackBar.showError(context, "خطأ: $e");
+              }
+            }
+          },
+        ),
+      ],
     );
   }
 
