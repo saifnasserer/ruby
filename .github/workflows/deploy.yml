@@ -61,7 +61,7 @@ jobs:
             networks:
               nginx_network:
                 external: true
-                name: docker-infra_nginx_network
+                name: laapak-network
             COMPOSE
 
             # 3. Pull latest image and restart
