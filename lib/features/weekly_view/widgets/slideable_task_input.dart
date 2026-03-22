@@ -8,6 +8,7 @@ import '../../settings/controllers/settings_controller.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../presentation/screens/auth/login_screen.dart';
 import '../../../presentation/screens/profile/profile_screen.dart';
+import '../../analysis/views/analysis_page.dart';
 
 class SlideableTaskInput extends StatefulWidget {
   final String dayOfWeek;
@@ -223,6 +224,19 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
                   ),
                 );
               }
+              _animateTo(0, 0);
+            },
+          ),
+          _buildQuickActionButton(
+            context,
+            icon: Icons.bar_chart_rounded,
+            color: RubyTheme.surfaceVariant(context),
+            label: 'التحليل',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AnalysisPage()),
+              );
               _animateTo(0, 0);
             },
           ),
