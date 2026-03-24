@@ -37,6 +37,12 @@ jobs:
       - name: Build APK (Debug)
         run: flutter build apk --debug
 
+      - name: Build APK (Release)
+        run: flutter build apk --release
+
+      - name: Build appbundle (Release)
+        run: flutter build appbundle --release 
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
