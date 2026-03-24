@@ -34,14 +34,11 @@ jobs:
       - name: Analyze code (Non-fatal)
         run: flutter analyze || echo "Analysis found issues but continuing with build"
 
-      - name: Build APK (Debug)
-        run: flutter build apk --debug
-
       - name: Build APK (Release)
-        run: flutter build apk --release --no-codesign
+        run: flutter build apk --release --no-codesign --no-daemon
 
       - name: Build appbundle (Release)
-        run: flutter build appbundle --release --no-codesign
+        run: flutter build appbundle --release --no-codesign --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
