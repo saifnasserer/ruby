@@ -5,6 +5,7 @@ import '../models/task.dart';
 class StorageService {
   static const String _tasksKey = 'ruby_tasks';
   static const String _lastMigrationWeekKey = 'last_migration_week';
+  static const String _availableTagsKey = 'ruby_available_tags';
 
   // Save all tasks to local storage
   static Future<void> saveTasks(Map<String, List<Task>> tasks) async {
@@ -121,6 +122,27 @@ class StorageService {
     } catch (e) {
       print('Error getting last migration week: $e');
       return null;
+    }
+  }
+
+  // Save available tags
+  static Future<void> saveAvailableTags(List<String> tags) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_availableTagsKey, tags);
+    } catch (e) {
+      print('Error saving available tags: $e');
+    }
+  }
+
+  // Load available tags
+  static Future<List<String>> loadAvailableTags() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getStringList(_availableTagsKey) ?? [];
+    } catch (e) {
+      print('Error loading available tags: $e');
+      return [];
     }
   }
 }

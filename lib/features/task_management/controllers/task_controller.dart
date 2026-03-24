@@ -7,8 +7,10 @@ import 'package:ruby/core/services/sync_service.dart';
 
 class TaskController extends ChangeNotifier {
   Map<String, List<Task>> _tasks = {};
+  List<String> _availableTags = [];
 
   Map<String, List<Task>> get tasks => _tasks;
+  List<String> get availableTags => _availableTags;
 
   // Map to store draft subtask text for each task: {taskId: draftText}
   final Map<String, String> _subtaskDrafts = {};
@@ -28,7 +30,7 @@ class TaskController extends ChangeNotifier {
   }
 
   /// Add a new task
-  void addTask(String dateKey, String taskText) {
+  void addTask(String dateKey, String taskText, {List<String>? tags}) {
     final now = DateTime.now();
     final task = Task(
       id: now.millisecondsSinceEpoch.toString(),
@@ -36,6 +38,7 @@ class TaskController extends ChangeNotifier {
       createdAt: now,
       updatedAt: now,
       dayOfWeek: dateKey,
+      tags: tags ?? [],
     );
 
     _tasks[dateKey] = _tasks[dateKey] ?? [];
@@ -181,6 +184,10 @@ class TaskController extends ChangeNotifier {
   Future<void> loadTasks() async {
     final savedTasks = await StorageService.loadTasks();
     _tasks = savedTasks;
+    
+    // Load available tags
+    _availableTags = await StorageService.loadAvailableTags();
+    
     _movePinnedTasksToToday();
     notifyListeners();
 
@@ -190,6 +197,7 @@ class TaskController extends ChangeNotifier {
         _tasks = newTasks;
         notifyListeners();
       });
+      // Also sync tags if needed later
     });
   }
 
@@ -461,15 +469,71 @@ class TaskController extends ChangeNotifier {
     if (dayTasks != null) {
       final taskIndex = dayTasks.indexWhere((task) => task.id == taskId);
       if (taskIndex != -1) {
-        final updatedTask = dayTasks[taskIndex].copyWith(
+        final task = dayTasks[taskIndex];
+        final updatedTask = task.copyWith(
           tags: tags,
           updatedAt: DateTime.now(),
         );
         dayTasks[taskIndex] = updatedTask;
+        
+        // Update available tags if new tags were added
+        bool tagsAdded = false;
+        for (final tag in tags) {
+          if (!_availableTags.contains(tag)) {
+            _availableTags.add(tag);
+            tagsAdded = true;
+          }
+        }
+        
+        if (tagsAdded) {
+          StorageService.saveAvailableTags(_availableTags);
+        }
+
         _saveTasks();
         notifyListeners();
         SyncService.instance.updateTask(updatedTask);
       }
+    }
+  }
+
+  void addGlobalTag(String tag) {
+    if (!_availableTags.contains(tag)) {
+      _availableTags.add(tag);
+      StorageService.saveAvailableTags(_availableTags);
+      notifyListeners();
+    }
+  }
+
+  void removeGlobalTag(String tag) {
+    if (_availableTags.contains(tag)) {
+      _availableTags.remove(tag);
+      StorageService.saveAvailableTags(_availableTags);
+      notifyListeners();
+    }
+  }
+
+  void renameGlobalTag(String oldTag, String newTag) {
+    if (_availableTags.contains(oldTag)) {
+      final index = _availableTags.indexOf(oldTag);
+      _availableTags[index] = newTag;
+      
+      // Update tags in all tasks
+      _tasks.forEach((dateKey, tasks) {
+        for (int i = 0; i < tasks.length; i++) {
+          if (tasks[i].tags.contains(oldTag)) {
+            final newTags = tasks[i].tags.map((t) => t == oldTag ? newTag : t).toList();
+            tasks[i] = tasks[i].copyWith(
+              tags: newTags,
+              updatedAt: DateTime.now(),
+            );
+            SyncService.instance.updateTask(tasks[i]);
+          }
+        }
+      });
+      
+      StorageService.saveAvailableTags(_availableTags);
+      _saveTasks();
+      notifyListeners();
     }
   }
 

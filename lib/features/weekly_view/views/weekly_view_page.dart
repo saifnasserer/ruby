@@ -192,14 +192,16 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
                   textDirection: TextDirection.rtl,
                   child: Column(
                     children: [
+                      _buildTagTabBar(),
+                      _buildQuickActions(),
                       Expanded(child: _buildUnifiedChatView()),
                       if (widget.settingsController != null)
                         SlideableTaskInput(
                           dayOfWeek: 'النهاردة',
-                          onTaskAdded: addTaskToCurrentDay,
+                          onTaskAdded: (text) => addTaskToCurrentDay(text, selectedTag: _currentFilter.selectedTag),
                           onTaskRestored: (taskId, dateKey) =>
                               restoreTask(taskId),
-                          onVoiceTaskAdded: addVoiceTaskToCurrentDay,
+                          onVoiceTaskAdded: (path, wave, [trans]) => addVoiceTaskToCurrentDay(path, wave, trans, _currentFilter.selectedTag),
                           settingsController: widget.settingsController!,
                           onSearchTap: () {
                             Navigator.push(
@@ -294,6 +296,109 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
     );
   }
 
+  Widget _buildQuickActions() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildQuickActionItem(
+            icon: Icons.add_task_rounded,
+            label: 'مهمة',
+            color: RubyTheme.sapphire,
+            onTap: () => addTaskToCurrentDay(''), // Just open input or add empty
+          ),
+          _buildQuickActionItem(
+            icon: Icons.label_outline_rounded,
+            label: 'وسوم',
+            color: RubyTheme.emerald,
+            onTap: () => _showFilterBottomSheet(),
+          ),
+          _buildQuickActionItem(
+            icon: Icons.analytics_outlined,
+            label: 'تحليل',
+            color: RubyTheme.rubyRed,
+            onTap: () {}, // Future feature
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionItem({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildTagTabBar() {
+    final tags = ['الكل', ...taskController.availableTags];
+    return Container(
+      height: 50,
+      margin: EdgeInsets.symmetric(vertical: 8),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        itemCount: tags.length,
+        itemBuilder: (context, index) {
+          final tag = tags[index];
+          final isSelected = (tag == 'الكل' && _currentFilter.selectedTag == null) ||
+                            (tag == _currentFilter.selectedTag);
+          return Padding(
+            padding: const EdgeInsets.only(left: 8.0),
+            child: ChoiceChip(
+              label: Text(tag),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  if (tag == 'الكل') {
+                    _currentFilter = _currentFilter.copyWith(clearSelectedTag: true);
+                  } else {
+                    _currentFilter = _currentFilter.copyWith(selectedTag: tag);
+                  }
+                });
+              },
+              selectedColor: RubyTheme.sapphire,
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : RubyTheme.charcoal,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+              backgroundColor: RubyTheme.surfaceVariant(context),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   void _showFilterBottomSheet() async {
     final newFilter = await showFilterBottomSheet(
       context: context,
@@ -321,6 +426,11 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
 
       // Apply date filter
       if (!_matchesDateFilter(task)) {
+        return false;
+      }
+
+      // Apply tag filter
+      if (_currentFilter.selectedTag != null && !task.tags.contains(_currentFilter.selectedTag)) {
         return false;
       }
 

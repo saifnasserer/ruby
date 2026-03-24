@@ -53,18 +53,21 @@ class TaskFilter {
   final TaskCompletionFilter completionFilter;
   final TaskPriorityFilter? priorityFilter;
   final TaskDateFilter dateFilter;
+  final String? selectedTag;
 
   const TaskFilter({
     this.completionFilter = TaskCompletionFilter.all,
     this.priorityFilter,
     this.dateFilter = TaskDateFilter.all,
+    this.selectedTag,
   });
 
   /// Check if any filters are active (not default)
   bool get hasActiveFilters {
     return completionFilter != TaskCompletionFilter.all ||
         priorityFilter != null ||
-        dateFilter != TaskDateFilter.all;
+        dateFilter != TaskDateFilter.all ||
+        selectedTag != null;
   }
 
   /// Create a copy with updated values
@@ -73,6 +76,8 @@ class TaskFilter {
     TaskPriorityFilter? priorityFilter,
     bool clearPriorityFilter = false,
     TaskDateFilter? dateFilter,
+    String? selectedTag,
+    bool clearSelectedTag = false,
   }) {
     return TaskFilter(
       completionFilter: completionFilter ?? this.completionFilter,
@@ -80,6 +85,9 @@ class TaskFilter {
           ? null
           : (priorityFilter ?? this.priorityFilter),
       dateFilter: dateFilter ?? this.dateFilter,
+      selectedTag: clearSelectedTag
+          ? null
+          : (selectedTag ?? this.selectedTag),
     );
   }
 
@@ -94,11 +102,12 @@ class TaskFilter {
     return other is TaskFilter &&
         other.completionFilter == completionFilter &&
         other.priorityFilter == priorityFilter &&
-        other.dateFilter == dateFilter;
+        other.dateFilter == dateFilter &&
+        other.selectedTag == selectedTag;
   }
 
   @override
   int get hashCode {
-    return Object.hash(completionFilter, priorityFilter, dateFilter);
+    return Object.hash(completionFilter, priorityFilter, dateFilter, selectedTag);
   }
 }

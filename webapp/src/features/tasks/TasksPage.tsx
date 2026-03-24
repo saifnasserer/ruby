@@ -198,7 +198,7 @@ export default function TasksPage() {
         };
         try {
             setNewTaskText('');
-            setSelectedTags([]);
+            setSelectedTags(activeTab !== 'الكل' ? [activeTab] : []);
             await pb.collection('tasks').create(taskData);
             setPage(1); // Reset to catch new task
             fetchTasks(1, true);
@@ -228,8 +228,65 @@ export default function TasksPage() {
     };
 
     const handleDeleteGlobalTag = (tagToDelete: string) => {
+        if (!window.confirm(`هل أنت متأكد من حذف التصنيف "${tagToDelete}"؟`)) return;
         setAvailableTags(prev => prev.filter(t => t !== tagToDelete));
         if (activeTab === tagToDelete) setActiveTab('الكل');
+        if (selectedTags.includes(tagToDelete)) setSelectedTags(prev => prev.filter(t => t !== tagToDelete));
+    };
+
+    const handleEditGlobalTag = (oldTag: string) => {
+        const newTag = window.prompt('أدخل الاسم الجديد للتصنيف:', oldTag);
+        if (!newTag || !newTag.trim() || newTag === oldTag) return;
+        if (availableTags.includes(newTag.trim())) {
+            alert('هذا التصنيف موجود بالفعل!');
+            return;
+        }
+
+        const trimmedNewTag = newTag.trim();
+        setAvailableTags(prev => prev.map(t => t === oldTag ? trimmedNewTag : t));
+        
+        if (activeTab === oldTag) setActiveTab(trimmedNewTag);
+        setSelectedTags(prev => prev.map(t => t === oldTag ? trimmedNewTag : t));
+        
+        // Update tags in existing tasks currently in state
+        setTasks(prev => prev.map(task => {
+            if (task.data?.tags?.includes(oldTag)) {
+                const updatedTags = task.data.tags.map((t: string) => t === oldTag ? trimmedNewTag : t);
+                const updatedData = { ...task.data, tags: updatedTags };
+                
+                // Fire and forget update to PocketBase for this task
+                pb.collection('tasks').update(task.id, { 
+                    data: JSON.stringify(updatedData) 
+                }).catch(err => console.error('Failed to update task tag during rename', err));
+                
+                return { ...task, data: updatedData };
+            }
+            return task;
+        }));
+    };
+
+    const handleToggleTaskTag = async (task: Task, tag: string) => {
+        const currentData = typeof task.data === 'string' ? JSON.parse(task.data) : task.data || {};
+        const currentTags = currentData.tags || [];
+        const isSelected = currentTags.includes(tag);
+        
+        const updatedTags = isSelected 
+            ? currentTags.filter((t: string) => t !== tag)
+            : [...currentTags, tag];
+            
+        const updatedData = { ...currentData, tags: updatedTags };
+        
+        try {
+            const updatedTask = { ...task, data: updatedData };
+            setSelectedTask(updatedTask);
+            setTasks(prev => prev.map(t => t.id === task.id ? updatedTask : t));
+            
+            await pb.collection('tasks').update(task.id, {
+                data: JSON.stringify(updatedData)
+            });
+        } catch (error) {
+            console.error('Failed to toggle task tag', error);
+        }
     };
 
     const handleUpdateTaskTitle = async () => {
@@ -625,6 +682,28 @@ export default function TasksPage() {
                                         {selectedTask.text}
                                     </h2>
                                 )}
+
+                                {/* Tags Management for Selected Task */}
+                                <div className="flex flex-wrap gap-2 mt-4 overflow-x-auto no-scrollbar py-2">
+                                    <span className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest ml-2 self-center">التصنيفات:</span>
+                                    {availableTags.map(tag => {
+                                        const isSelected = selectedTask.data?.tags?.includes(tag);
+                                        return (
+                                            <button
+                                                key={tag}
+                                                onClick={() => handleToggleTaskTag(selectedTask, tag)}
+                                                className={cn(
+                                                    "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                                                    isSelected
+                                                        ? "bg-primary text-white shadow-sm scale-105"
+                                                        : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container opacity-60"
+                                                )}
+                                            >
+                                                {tag}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
 
@@ -731,12 +810,20 @@ export default function TasksPage() {
                                 {availableTags.map(tag => (
                                     <div key={tag} className="flex items-center gap-2.5 px-3 py-0.5 bg-surface-container-low rounded-full border border-surface-container group hover:border-primary/20 transition-all">
                                         <span className="font-bold text-xs text-on-surface">{tag}</span>
-                                        <button
-                                            onClick={() => handleDeleteGlobalTag(tag)}
-                                            className="p-0.5 hover:text-red-500 opacity-30 group-hover:opacity-100 transition-all"
-                                        >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => handleEditGlobalTag(tag)}
+                                                className="p-1 hover:text-primary opacity-30 group-hover:opacity-100 transition-all"
+                                            >
+                                                <Pencil className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteGlobalTag(tag)}
+                                                className="p-1 hover:text-red-500 opacity-30 group-hover:opacity-100 transition-all"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                                 {availableTags.length === 0 && (

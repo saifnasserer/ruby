@@ -172,6 +172,41 @@ export default function HomePage() {
                 ))}
             </motion.div>
 
+            <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="flex flex-col gap-6"
+            >
+                <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-black text-on-surface">إجراءات سريعة</h2>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {[
+                        { label: 'إضافة مهمة', icon: Zap, color: 'bg-primary text-white', link: '/tasks' },
+                        { label: 'إدارة التصنيفات', icon: Target, color: 'bg-secondary text-white', link: '/tasks' },
+                        { label: 'المهام المتأخرة', icon: Clock, color: 'bg-warning text-on-warning-container', link: '/tasks' },
+                        { label: 'تقارير الأداء', icon: CheckCircle2, color: 'bg-success text-white', link: '/' },
+                    ].map((action, i) => (
+                        <motion.a
+                            key={i}
+                            href={action.link}
+                            whileHover={{ scale: 1.02, y: -2 }}
+                            whileTap={{ scale: 0.98 }}
+                            className={cn(
+                                "flex flex-col items-center justify-center gap-3 p-6 rounded-[2rem] border-4 border-surface-container transition-all cursor-pointer bg-surface-container-lowest hover:border-surface-container-high shadow-sm",
+                                "group"
+                            )}
+                        >
+                            <div className={cn("p-4 rounded-2xl transition-transform group-hover:rotate-12", action.color)}>
+                                <action.icon className="w-6 h-6" />
+                            </div>
+                            <span className="font-black text-on-surface text-sm">{action.label}</span>
+                        </motion.a>
+                    ))}
+                </div>
+            </motion.section>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <motion.div
                     initial={{ opacity: 0, x: 20 }}

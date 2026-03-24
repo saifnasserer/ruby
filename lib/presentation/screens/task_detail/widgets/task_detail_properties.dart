@@ -196,6 +196,138 @@ class _TaskDetailPropertiesState extends State<TaskDetailProperties> {
     }
   }
 
+  void _showTagSelector() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: RubyTheme.surface(context),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: EdgeInsets.all(20),
+          child: Column(
+            children: [
+              Text('إدارة الوسوم', style: RubyTheme.heading2(context)),
+              SizedBox(height: 20),
+              TextField(
+                decoration: InputDecoration(
+                  hintText: 'إضافة وسم جديد...',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  suffixIcon: IconButton(
+                    icon: Icon(Icons.add),
+                    onPressed: () => _addNewTag(),
+                  ),
+                ),
+                onSubmitted: (value) => _addNewTag(value),
+              ),
+              SizedBox(height: 20),
+              Expanded(
+                child: ListenableBuilder(
+                  listenable: widget.taskController,
+                  builder: (context, _) {
+                    final tags = widget.taskController.availableTags;
+                    return ListView.builder(
+                      controller: scrollController,
+                      itemCount: tags.length,
+                      itemBuilder: (context, index) {
+                        final tag = tags[index];
+                        final isAlreadyAdded = widget.task.tags.contains(tag);
+                        return ListTile(
+                          title: Text(tag),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.edit, size: 20, color: RubyTheme.sapphire),
+                                onPressed: () => _renameTag(tag),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.delete_outline, size: 20, color: RubyTheme.priorityHigh),
+                                onPressed: () => _removeGlobalTag(tag),
+                              ),
+                              Checkbox(
+                                value: isAlreadyAdded,
+                                onChanged: (value) {
+                                  final currentTags = List<String>.from(widget.task.tags);
+                                  if (value == true) {
+                                    currentTags.add(tag);
+                                  } else {
+                                    currentTags.remove(tag);
+                                  }
+                                  widget.taskController.updateTaskTags(
+                                    widget.dateKey,
+                                    widget.task.id,
+                                    currentTags,
+                                  );
+                                  widget.onTaskUpdated();
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _addNewTag([String? value]) {
+    final tag = value?.trim();
+    if (tag != null && tag.isNotEmpty) {
+      widget.taskController.addGlobalTag(tag);
+      final currentTags = List<String>.from(widget.task.tags);
+      if (!currentTags.contains(tag)) {
+        currentTags.add(tag);
+        widget.taskController.updateTaskTags(
+          widget.dateKey,
+          widget.task.id,
+          currentTags,
+        );
+        widget.onTaskUpdated();
+      }
+      Navigator.pop(context);
+    }
+  }
+
+  void _renameTag(String oldTag) async {
+    final controller = TextEditingController(text: oldTag);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('تعديل الوسم'),
+        content: TextField(controller: controller, autofocus: true),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('إلغاء')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: Text('حفظ'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty && result != oldTag) {
+      widget.taskController.renameGlobalTag(oldTag, result);
+      widget.onTaskUpdated();
+    }
+  }
+
+  void _removeGlobalTag(String tag) {
+    widget.taskController.removeGlobalTag(tag);
+  }
+
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -562,30 +694,41 @@ class _TaskDetailPropertiesState extends State<TaskDetailProperties> {
             value: _formatDate(widget.task.completedAt!),
           ),
 
-        // Tags Section (Keep this in card)
-        if (widget.task.tags.isNotEmpty) ...[
-          SizedBox(height: Responsive.space(context, size: Space.large)),
-          Padding(
-            padding: EdgeInsets.only(
-              bottom: Responsive.space(context, size: Space.medium),
-              right: Responsive.space(context, size: Space.small),
-            ),
-            child: Text(
-              'الوسوم',
-              style: RubyTheme.heading2(context).copyWith(
-                color: RubyTheme.textPrimary(context),
-                fontSize: Responsive.text(context, size: TextSize.medium),
+        // Tags Section
+        SizedBox(height: Responsive.space(context, size: Space.large)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: Responsive.space(context, size: Space.medium),
+                right: Responsive.space(context, size: Space.small),
+              ),
+              child: Text(
+                'الوسوم',
+                style: RubyTheme.heading2(context).copyWith(
+                  color: RubyTheme.textPrimary(context),
+                  fontSize: Responsive.text(context, size: TextSize.medium),
+                ),
               ),
             ),
-          ),
+            IconButton(
+              icon: Icon(Icons.add_circle_outline, color: RubyTheme.sapphire),
+              onPressed: _showTagSelector,
+            ),
+          ],
+        ),
+        if (widget.task.tags.isNotEmpty)
           Wrap(
             spacing: Responsive.space(context, size: Space.small),
             runSpacing: Responsive.space(context, size: Space.small),
             children: widget.task.tags.map((tag) {
               return Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: Responsive.space(context, size: Space.medium),
-                  vertical: Responsive.space(context, size: Space.small),
+                padding: EdgeInsets.only(
+                  right: Responsive.space(context, size: Space.medium),
+                  top: Responsive.space(context, size: Space.small),
+                  bottom: Responsive.space(context, size: Space.small),
+                  left: Responsive.space(context, size: Space.small),
                 ),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -602,17 +745,42 @@ class _TaskDetailPropertiesState extends State<TaskDetailProperties> {
                     width: 1,
                   ),
                 ),
-                child: Text(
-                  tag,
-                  style: RubyTheme.bodyMedium(context).copyWith(
-                    color: RubyTheme.sapphire,
-                    fontWeight: FontWeight.w500,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      tag,
+                      style: RubyTheme.bodyMedium(context).copyWith(
+                        color: RubyTheme.sapphire,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: () {
+                        final currentTags = List<String>.from(widget.task.tags);
+                        currentTags.remove(tag);
+                        widget.taskController.updateTaskTags(
+                          widget.dateKey,
+                          widget.task.id,
+                          currentTags,
+                        );
+                        widget.onTaskUpdated();
+                      },
+                      child: Icon(Icons.close, size: 14, color: RubyTheme.sapphire),
+                    ),
+                  ],
                 ),
               );
             }).toList(),
+          )
+        else
+          Text(
+            'لا توجد وسوم مضافة',
+            style: RubyTheme.bodyMedium(context).copyWith(
+              color: RubyTheme.textSecondary(context).withOpacity(0.5),
+            ),
           ),
-        ],
       ],
     );
   }

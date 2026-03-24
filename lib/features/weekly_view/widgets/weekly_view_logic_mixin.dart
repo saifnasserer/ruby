@@ -57,16 +57,16 @@ mixin WeeklyViewLogicMixin<T extends StatefulWidget> on State<T> {
     }
   }
 
-  void addTaskToCurrentDay(String taskText) {
+  void addTaskToCurrentDay(String taskText, {String? selectedTag}) {
     final currentDateKey = weeklyViewController.getCurrentDateKey();
-    taskController.addTask(currentDateKey, taskText);
+    taskController.addTask(currentDateKey, taskText, tags: selectedTag != null ? [selectedTag] : null);
     loadChatHistoryForDay(currentDateKey);
   }
 
-  void addTaskToDay(String dateKey, String taskText) {
+  void addTaskToDay(String dateKey, String taskText, {String? selectedTag}) {
     // Always add to the specific day requested.
     // This ensures historical data is preserved as intended by the user.
-    taskController.addTask(dateKey, taskText);
+    taskController.addTask(dateKey, taskText, tags: selectedTag != null ? [selectedTag] : null);
     loadChatHistoryForDay(dateKey);
   }
 
@@ -119,6 +119,7 @@ mixin WeeklyViewLogicMixin<T extends StatefulWidget> on State<T> {
     String audioPath,
     List<double>? waveformData, [
     String? transcription,
+    String? selectedTag,
   ]) {
     if (audioPath.isEmpty) return;
 
@@ -133,6 +134,7 @@ mixin WeeklyViewLogicMixin<T extends StatefulWidget> on State<T> {
       dayOfWeek: dateKey, // FIX: Use dateKey instead of display text
       audioPath: audioPath,
       waveformData: waveformData,
+      tags: selectedTag != null ? [selectedTag] : [],
     );
 
     taskController.addTaskObject(dateKey, task);
