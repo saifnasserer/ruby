@@ -45,3 +45,7 @@ app.*.map.json
 /android/app/release
 /.agentremote_db_dump.sql
 local_db_backup.sql
+
+# Database dumps
+local_db_backup.sql
+remote_db_dump.sql
