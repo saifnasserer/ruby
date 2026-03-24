@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:ruby/core/theme/ruby_theme.dart';
-import 'package:ruby/core/utils/date_formatter.dart';
 import 'package:ruby/core/models/task_filter.dart';
 import 'package:ruby/features/weekly_view/widgets/unified_chat_view.dart';
 import 'package:ruby/presentation/widgets/chat_input.dart';
@@ -11,7 +10,6 @@ import 'package:ruby/features/weekly_view/widgets/slideable_task_input.dart';
 import 'package:ruby/presentation/screens/task_detail_screen.dart';
 import 'package:ruby/core/models/task.dart';
 import 'package:ruby/features/settings/controllers/settings_controller.dart';
-import 'package:ruby/features/weekly_view/widgets/weekly_view_modals.dart';
 import 'package:ruby/features/weekly_view/widgets/weekly_view_logic_mixin.dart';
 import 'package:ruby/features/search/views/search_screen.dart';
 import 'package:ruby/core/services/auth_service.dart';
@@ -70,32 +68,6 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
   }
 
   // UI action handlers that use Modals helper
-
-  void _handleShowTaskDetail(Task task) {
-    // Use the task's actual creation date, not the current date
-    final taskDateKey = DateFormatter.getDateKey(task.createdAt);
-
-    WeeklyViewModals.showTaskDetailModal(
-      context,
-      task: task,
-      currentDateKey: taskDateKey,
-      taskController: taskController,
-      onLoadHistory: loadChatHistoryForDay,
-    );
-  }
-
-  void _handleShowPrioritySelector(Task task) {
-    // Use the task's actual creation date, not the current date
-    final taskDateKey = DateFormatter.getDateKey(task.createdAt);
-
-    WeeklyViewModals.showPrioritySelector(
-      context,
-      task: task,
-      currentDateKey: taskDateKey,
-      taskController: taskController,
-      onLoadHistory: loadChatHistoryForDay,
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -338,7 +310,7 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
           Container(
             padding: EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 24),
