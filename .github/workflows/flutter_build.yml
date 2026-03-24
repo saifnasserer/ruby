@@ -36,10 +36,10 @@ jobs:
         run: flutter analyze || echo "Analysis found issues but continuing with build"
 
       - name: Build APK (Release)
-        run: flutter build apk --release --no-daemon
+        run: flutter build apk --release
 
       - name: Build appbundle (Release)
-        run: flutter build appbundle --release --no-daemon
+        run: flutter build appbundle --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
