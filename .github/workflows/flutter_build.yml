@@ -38,6 +38,14 @@ jobs:
       - name: Build APK (Release)
         run: flutter build apk --release
 
+      - name: Setup Signing
+        run: |
+          echo "storePassword=${{ secrets.STORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=ruby-release-key.jks" >> android/key.properties
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/ruby-release-key.jks
+
       - name: Build appbundle (Release)
         run: flutter build appbundle --release
 
@@ -52,3 +60,13 @@ jobs:
         with:
           name: bakiza-appbundle
           path: build/app/outputs/bundle/release/*.aab
+
+      - name: Deploy to Play Store (Internal Testing)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.SERVICE_ACCOUNT_JSON }}
+          packageName: com.engseif.ruby
+          releaseFiles: build/app/outputs/bundle/release/*.aab
+          track: internal
+          status: completed
