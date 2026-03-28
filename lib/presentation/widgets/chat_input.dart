@@ -109,29 +109,15 @@ class _ChatInputState extends State<ChatInput> with SingleTickerProviderStateMix
         vertical: RubyTheme.spacingS(context),
       ),
       child: SafeArea(
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.bottomCenter,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Floating Tag Selector (Positioned absolutely above)
-            Positioned(
-              bottom: 60, // Positioned above the input bar
-              left: 0,
-              right: 0,
-              child: FadeTransition(
-                opacity: _animation,
-                child: SlideTransition(
-                  position: _animation.drive(
-                    Tween<Offset>(
-                      begin: const Offset(0, 0.2),
-                      end: Offset.zero,
-                    ),
-                  ),
-                  child: widget.availableTags.isNotEmpty ? _buildFloatingTagSelector() : const SizedBox.shrink(),
-                ),
-              ),
-            ),
+            // Floating Tag Selector
+            if (widget.availableTags.isNotEmpty)
+              _buildFloatingTagSelector(),
             
+            SizedBox(height: RubyTheme.spacingS(context)),
+
             // Input Bar
             Row(
               children: [
@@ -245,71 +231,78 @@ class _ChatInputState extends State<ChatInput> with SingleTickerProviderStateMix
   }
 
   Widget _buildFloatingTagSelector() {
-    return Container(
-      height: 54,
-      decoration: BoxDecoration(
-        color: RubyTheme.surface(context).withOpacity(0.95),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: RubyTheme.sapphire.withOpacity(0.1),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: widget.availableTags.length,
-        itemBuilder: (context, index) {
-          final tag = widget.availableTags[index];
-          final isSelected = _selectedTags.contains(tag);
+    return SizeTransition(
+      sizeFactor: _animation,
+      axisAlignment: -1.0,
+      child: SizedBox(
+        height: 48,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          itemCount: widget.availableTags.length,
+          itemBuilder: (context, index) {
+            final tag = widget.availableTags[index];
+            final isSelected = _selectedTags.contains(tag);
 
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  if (isSelected) {
-                    _selectedTags.remove(tag);
-                  } else {
-                    _selectedTags.add(tag);
-                  }
-                });
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected ? RubyTheme.sapphire : Colors.transparent,
-                  borderRadius: BorderRadius.circular(100),
-                  border: Border.all(
-                    color: isSelected 
-                      ? RubyTheme.sapphire 
-                      : RubyTheme.textSecondary(context).withOpacity(0.1),
-                    width: 1,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    tag,
-                    style: RubyTheme.bodyMedium(context).copyWith(
-                      color: isSelected ? RubyTheme.pureWhite : RubyTheme.textPrimary(context),
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      fontSize: 13,
+            // Calculate staggered animation delay
+            final double start = (index * 0.05).clamp(0.0, 0.6);
+            final double end = (start + 0.4).clamp(0.0, 1.0);
+            
+            final tagAnimation = CurvedAnimation(
+              parent: _animationController,
+              curve: Interval(start, end, curve: Curves.easeOutBack),
+            );
+
+            return FadeTransition(
+              opacity: tagAnimation,
+              child: ScaleTransition(
+                scale: tagAnimation,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedTags.remove(tag);
+                        } else {
+                          _selectedTags.add(tag);
+                        }
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isSelected 
+                          ? RubyTheme.accent(context) 
+                          : RubyTheme.surfaceVariant(context).withOpacity(0.8),
+                        borderRadius: BorderRadius.circular(100),
+                        boxShadow: isSelected ? RubyTheme.softShadow(context) : null,
+                        border: Border.all(
+                          color: isSelected 
+                            ? RubyTheme.accent(context) 
+                            : RubyTheme.textSecondary(context).withOpacity(0.05),
+                          width: 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          tag,
+                          style: RubyTheme.bodyMedium(context).copyWith(
+                            color: isSelected ? RubyTheme.pureWhite : RubyTheme.textPrimary(context),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

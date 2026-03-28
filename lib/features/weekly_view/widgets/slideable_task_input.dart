@@ -44,7 +44,6 @@ class SlideableTaskInput extends StatefulWidget {
 class _SlideableTaskInputState extends State<SlideableTaskInput>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
-  final ScrollController _scrollController = ScrollController();
   final FocusNode _inputFocusNode = FocusNode(); // Controlled from here
   double _dragOffset = 0.0;
   final double _actionThreshold = 0.3; // 30% swipe to snap
@@ -61,7 +60,6 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
   @override
   void dispose() {
     _animationController.dispose();
-    _scrollController.dispose();
     _inputFocusNode.dispose();
     super.dispose();
   }
@@ -135,11 +133,6 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
   Widget build(BuildContext context) {
     return Container(
       margin: EdgeInsets.all(RubyTheme.spacingM(context)),
-      decoration: BoxDecoration(
-        color: RubyTheme.surface(context),
-        borderRadius: BorderRadius.circular(100),
-        boxShadow: RubyTheme.softShadow(context),
-      ),
       child: LayoutBuilder(
           builder: (context, constraints) {
             final maxWidth = constraints.maxWidth;
@@ -181,14 +174,7 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
                               _inputFocusNode.requestFocus();
                             }
                           },
-                          child: Container(
-                            // Don't use color here, let ChatInput handle its own background
-                            // but we need a background for the capsule shape if it's not open
-                            decoration: BoxDecoration(
-                              color: RubyTheme.surface(context),
-                              borderRadius: BorderRadius.circular(100),
-                            ),
-                            child: ChatInput(
+                          child: ChatInput(
                               dayOfWeek: widget.dayOfWeek,
                               focusNode: _inputFocusNode,
                               onTaskAdded: (text, tags) => widget.onTaskAdded(text, tags),
@@ -200,7 +186,6 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
                             ),
                           ),
                         ),
-                      ),
                     ],
                   );
                 },
@@ -212,51 +197,19 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
   }
 
   Widget _buildQuickActionsRow(BuildContext context, double maxWidth) {
-    // Match theme color from ChatInput
-    final themeColor = RubyTheme.surface(context);
-
-    return Container(
-      color: themeColor,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onHorizontalDragUpdate: (details) {
-          // If we are scrolling the list, let the ScrollView handle it
-          // UNLESS we are at the edge and trying to close the bar
-          if (_scrollController.hasClients) {
-            final position = _scrollController.position;
-            // In Flutter RTL, pixels=0 is the right-most point.
-            // Dragging RIGHT (positive delta in screen space) should close the bar 
-            // if we are already at the right-most point (pixels <= 0).
-            // Dragging LEFT (negative delta) at any point should help close
-            // if we are already at the left-most scroll point
-            if (position.pixels <= 1.0 && details.primaryDelta! < 0) {
-               _handleDragUpdate(details, maxWidth);
-            } else if (position.pixels >= position.maxScrollExtent - 1.0 && details.primaryDelta! > 0) {
-              // RTL: At the right edge, dragging RIGHT opens more/keeps open
-               _handleDragUpdate(details, maxWidth);
-            }
-          }
-        },
-        onHorizontalDragEnd: (details) => _handleDragEnd(details, maxWidth),
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          scrollDirection: Axis.horizontal,
-          physics: const ClampingScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: RubyTheme.spacingM(context)),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: RubyTheme.spacingS(context)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
           _buildQuickActionButton(
             context,
             icon: Icons.person_outline_rounded,
             color: RubyTheme.surfaceVariant(context),
             label: 'الملف الشخصي',
             onTap: () {
-              // Check if user is logged in
               final isLoggedIn = AuthService.instance.currentUser != null;
-
               if (isLoggedIn) {
-                // Navigate to profile if logged in
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -266,7 +219,6 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
                   ),
                 );
               } else {
-                // Show login screen if logged out
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -292,7 +244,6 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
               _animateTo(0, 0);
             },
           ),
-          SizedBox(width: 15),
           _buildQuickActionButton(
             context,
             icon: Icons.settings,
@@ -307,10 +258,9 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
                   ),
                 ),
               );
-              _animateTo(0, 0); // Return to input
+              _animateTo(0, 0);
             },
           ),
-          SizedBox(width: 15),
           _buildQuickActionButton(
             context,
             icon: Icons.search,
@@ -321,8 +271,6 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
               _animateTo(0, 0);
             },
           ),
-          SizedBox(width: 15),
-          // Filter button with badge
           Stack(
             clipBehavior: Clip.none,
             children: [
@@ -355,8 +303,6 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
                 ),
             ],
           ),
-          SizedBox(width: 15),
-          // Sync / Login Button
           _buildQuickActionButton(
             context,
             icon: Icons.cloud_sync,
@@ -364,9 +310,9 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
             label: 'مزامنة',
             onTap: () async {
               if (AuthService.instance.isAuthenticated) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('جاري المزامنة...')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('جاري المزامنة...')),
+                );
                 if (widget.onSyncTap != null) {
                   await widget.onSyncTap!();
                 }
@@ -379,15 +325,13 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
                   ),
                 );
               }
-              _animateTo(0, 0); // Close drawer
+              _animateTo(0, 0);
             },
           ),
         ],
       ),
-    ),
-  ),
     );
-}
+  }
 
   Widget _buildQuickActionButton(
     BuildContext context, {
