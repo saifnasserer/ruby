@@ -190,10 +190,13 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
 
     return Container(
       color: themeColor,
-      padding: EdgeInsets.symmetric(horizontal: RubyTheme.spacingM(context)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: EdgeInsets.symmetric(horizontal: RubyTheme.spacingM(context)),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
           _buildQuickActionButton(
             context,
             icon: Icons.person_outline_rounded,
@@ -340,8 +343,9 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildQuickActionButton(
     BuildContext context, {

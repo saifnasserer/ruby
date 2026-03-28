@@ -165,7 +165,6 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
                   child: Column(
                     children: [
                       _buildTagTabBar(),
-                      _buildQuickActions(),
                       Expanded(child: _buildUnifiedChatView()),
                       if (widget.settingsController != null)
                         SlideableTaskInput(
@@ -268,66 +267,7 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
     );
   }
 
-  Widget _buildQuickActions() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildQuickActionItem(
-            icon: Icons.add_task_rounded,
-            label: 'مهمة',
-            color: RubyTheme.sapphire,
-            onTap: () => addTaskToCurrentDay(''), // Just open input or add empty
-          ),
-          _buildQuickActionItem(
-            icon: Icons.label_outline_rounded,
-            label: 'وسوم',
-            color: RubyTheme.emerald,
-            onTap: () => _showFilterBottomSheet(),
-          ),
-          _buildQuickActionItem(
-            icon: Icons.analytics_outlined,
-            label: 'تحليل',
-            color: RubyTheme.rubyRed,
-            onTap: () {}, // Future feature
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildQuickActionItem({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            padding: EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
 
   Widget _buildTagTabBar() {
@@ -344,11 +284,9 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
           final isSelected = (tag == 'الكل' && _currentFilter.selectedTag == null) ||
                             (tag == _currentFilter.selectedTag);
           return Padding(
-            padding: const EdgeInsets.only(left: 8.0),
-            child: ChoiceChip(
-              label: Text(tag),
-              selected: isSelected,
-              onSelected: (selected) {
+            padding: const EdgeInsets.only(left: 8.0, top: 4, bottom: 4),
+            child: GestureDetector(
+              onTap: () {
                 setState(() {
                   if (tag == 'الكل') {
                     _currentFilter = _currentFilter.copyWith(clearSelectedTag: true);
@@ -357,13 +295,28 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
                   }
                 });
               },
-              selectedColor: RubyTheme.sapphire,
-              labelStyle: TextStyle(
-                color: isSelected ? Colors.white : RubyTheme.charcoal,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? RubyTheme.sapphire : Colors.transparent,
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: isSelected ? RubyTheme.sapphire : RubyTheme.textSecondary(context).withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    tag,
+                    style: TextStyle(
+                      color: isSelected ? RubyTheme.pureWhite : RubyTheme.textPrimary(context),
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
               ),
-              backgroundColor: RubyTheme.surfaceVariant(context),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             ),
           );
         },

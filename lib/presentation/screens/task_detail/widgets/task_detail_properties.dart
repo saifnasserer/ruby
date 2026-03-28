@@ -25,6 +25,14 @@ class TaskDetailProperties extends StatefulWidget {
 }
 
 class _TaskDetailPropertiesState extends State<TaskDetailProperties> {
+  final TextEditingController _tagInputController = TextEditingController();
+  
+  @override
+  void dispose() {
+    _tagInputController.dispose();
+    super.dispose();
+  }
+
   Color _getPriorityColorForPriority(TaskPriority priority) {
     switch (priority) {
       case TaskPriority.important:
@@ -216,12 +224,22 @@ class _TaskDetailPropertiesState extends State<TaskDetailProperties> {
               Text('إدارة الوسوم', style: RubyTheme.heading2(context)),
               SizedBox(height: 20),
               TextField(
+                controller: _tagInputController,
                 decoration: InputDecoration(
                   hintText: 'إضافة وسم جديد...',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(100)),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(100),
+                    borderSide: BorderSide(color: RubyTheme.textSecondary(context).withOpacity(0.2)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(100),
+                    borderSide: BorderSide(color: RubyTheme.sapphire, width: 1.5),
+                  ),
                   suffixIcon: IconButton(
                     icon: Icon(Icons.add),
-                    onPressed: () => _addNewTag(),
+                    onPressed: () => _addNewTag(_tagInputController.text),
                   ),
                 ),
                 onSubmitted: (value) => _addNewTag(value),
@@ -297,7 +315,8 @@ class _TaskDetailPropertiesState extends State<TaskDetailProperties> {
         );
         widget.onTaskUpdated();
       }
-      Navigator.pop(context);
+      _tagInputController.clear();
+      // Don't pop, allow adding more tags
     }
   }
 
@@ -737,11 +756,9 @@ class _TaskDetailPropertiesState extends State<TaskDetailProperties> {
                       RubyTheme.sapphire.withOpacity(0.05),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(
-                    Responsive.space(context, size: Space.large),
-                  ),
+                  borderRadius: BorderRadius.circular(100),
                   border: Border.all(
-                    color: RubyTheme.sapphire.withOpacity(0.3),
+                    color: RubyTheme.sapphire.withOpacity(0.2),
                     width: 1,
                   ),
                 ),
@@ -752,10 +769,11 @@ class _TaskDetailPropertiesState extends State<TaskDetailProperties> {
                       tag,
                       style: RubyTheme.bodyMedium(context).copyWith(
                         color: RubyTheme.sapphire,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
                       ),
                     ),
-                    SizedBox(width: 4),
+                    SizedBox(width: 6),
                     GestureDetector(
                       onTap: () {
                         final currentTags = List<String>.from(widget.task.tags);
@@ -767,7 +785,14 @@ class _TaskDetailPropertiesState extends State<TaskDetailProperties> {
                         );
                         widget.onTaskUpdated();
                       },
-                      child: Icon(Icons.close, size: 14, color: RubyTheme.sapphire),
+                      child: Container(
+                        padding: EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: RubyTheme.sapphire.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.close, size: 12, color: RubyTheme.sapphire),
+                      ),
                     ),
                   ],
                 ),
