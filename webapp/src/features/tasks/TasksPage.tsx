@@ -58,6 +58,8 @@ export default function TasksPage() {
     const [newTagInput, setNewTagInput] = useState('');
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [isCreating, setIsCreating] = useState(false);
+    const abortControllerRef = useRef<AbortController | null>(null);
+    const isFetchingRef = useRef(false);
 
     const observer = useRef<IntersectionObserver | null>(null);
     const lastTaskElementRef = useCallback((node: HTMLDivElement | null) => {
@@ -77,6 +79,17 @@ export default function TasksPage() {
     }, [availableTags]);
 
     const fetchTasks = async (pageNum: number, isRefresh = false) => {
+        if (isFetchingRef.current && !isRefresh) return;
+        
+        // Abort previous requests if refreshing
+        if (isRefresh && abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+        isFetchingRef.current = true;
+
         try {
             const userId = pb.authStore.model?.id;
             if (!userId) return;
@@ -129,6 +142,7 @@ export default function TasksPage() {
                     const pinnedResult = await pb.collection('tasks').getFullList<Task>({
                         filter: `user = "${userId}" && (data.isPinned = true || data.is_pinned = true || is_pinned = true)`,
                         sort: '-created',
+                        $cancelKey: 'pinned_fetch'
                     });
                     pinnedTasks = pinnedResult.map(record => {
                         let subtasks: Subtask[] = [];
@@ -199,6 +213,9 @@ export default function TasksPage() {
         } catch (error) {
             console.error('Failed to fetch tasks', error);
         } finally {
+            if (abortControllerRef.current === controller) {
+                isFetchingRef.current = false;
+            }
             setIsInitialLoad(false);
             setIsLoadingMore(false);
         }
@@ -230,12 +247,37 @@ export default function TasksPage() {
         const userId = pb.authStore.model?.id;
         pb.collection('tasks').subscribe<Task>('*', (e) => {
             if (e.record.user !== userId) return;
-            if (e.action === 'create' || e.action === 'update' || e.action === 'delete') {
+            
+            if (e.action === 'create') {
                 setPage(1);
                 fetchTasks(1, true);
+            } else if (e.action === 'update') {
+                // Granular update instead of full refresh to prevent duplicates/flicker
+                setTasks(prev => prev.map(t => {
+                    if (t.id === e.record.id) {
+                        // Keep our local parsing logic
+                        let subtasks: Subtask[] = [];
+                        let isPinned = false;
+                        const fieldData = e.record.data;
+                        if (fieldData) {
+                            try {
+                                const parsedData = typeof fieldData === 'string' ? JSON.parse(fieldData) : fieldData;
+                                subtasks = parsedData.subtasks || [];
+                                isPinned = parsedData.isPinned || parsedData.is_pinned || e.record.is_pinned || false;
+                            } catch (err) { }
+                        }
+                        return { ...e.record, subtasks, is_pinned: !!isPinned };
+                    }
+                    return t;
+                }));
+            } else if (e.action === 'delete') {
+                setTasks(prev => prev.filter(t => t.id !== e.record.id));
             }
         });
-        return () => { pb.collection('tasks').unsubscribe('*'); };
+        return () => { 
+            pb.collection('tasks').unsubscribe('*'); 
+            if (abortControllerRef.current) abortControllerRef.current.abort();
+        };
     }, []);
 
     const filteredTasks = useMemo(() => {
