@@ -240,9 +240,16 @@ export default function TasksPage() {
 
     const filteredTasks = useMemo(() => {
         return [...tasks].sort((a, b) => {
-            if (a.is_pinned && !b.is_pinned) return -1;
-            if (!a.is_pinned && b.is_pinned) return 1;
-            return 0; // Maintain existing order for others
+            const aPinned = !!(a.is_pinned || (a.data?.isPinned) || (a.data?.is_pinned));
+            const bPinned = !!(b.is_pinned || (b.data?.isPinned) || (b.data?.is_pinned));
+            
+            if (aPinned && !bPinned) return -1;
+            if (!aPinned && bPinned) return 1;
+            
+            // Secondary sort: newest created first
+            const aTime = new Date(a.created || 0).getTime();
+            const bTime = new Date(b.created || 0).getTime();
+            return bTime - aTime;
         });
     }, [tasks]);
 

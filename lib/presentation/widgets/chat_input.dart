@@ -30,17 +30,28 @@ class _ChatInputState extends State<ChatInput> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   bool _isTyping = false;
+  bool _showTagSelector = false;
   List<String> _selectedTags = [];
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(_onTextChanged);
+    _focusNode.addListener(_onFocusChanged);
+  }
+
+  void _onFocusChanged() {
+    if (mounted) {
+      setState(() {
+        _showTagSelector = _focusNode.hasFocus;
+      });
+    }
   }
 
   @override
   void dispose() {
     _controller.removeListener(_onTextChanged);
+    _focusNode.removeListener(_onFocusChanged);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -80,8 +91,11 @@ class _ChatInputState extends State<ChatInput> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Tag Selector Row
-            _buildTagSelector(),
+            // Floating Tag Selector (Separate from input bar)
+            if (_showTagSelector && widget.availableTags.isNotEmpty)
+              _buildFloatingTagSelector(),
+            if (_showTagSelector && widget.availableTags.isNotEmpty)
+              const SizedBox(height: 12),
             Row(
               children: [
                 // Send button
@@ -146,30 +160,33 @@ class _ChatInputState extends State<ChatInput> {
                           vertical: RubyTheme.spacingM(context) / 2,
                         ),
                         suffixIcon: _isTyping
-                            ? null
-                            : (widget.hasActiveFilters
-                                ? Container(
-                                    margin: EdgeInsets.all(8),
-                                    padding: EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: RubyTheme.sapphire.withOpacity(
-                                        0.15,
-                                      ),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      Icons.filter_list,
-                                      size: 16,
-                                      color: RubyTheme.sapphire,
-                                    ),
-                                  )
-                                : Icon(
-                                    Icons.arrow_back_ios_new_rounded,
-                                    size: 16,
-                                    color: RubyTheme.textSecondary(
-                                      context,
-                                    ).withOpacity(0.5),
-                                  )),
+                               ? null
+                               : Row(
+                                   mainAxisSize: MainAxisSize.min,
+                                   children: [
+                                     if (widget.hasActiveFilters)
+                                       Container(
+                                         margin: const EdgeInsets.only(right: 4),
+                                         padding: const EdgeInsets.all(6),
+                                         decoration: BoxDecoration(
+                                           color: RubyTheme.sapphire.withOpacity(0.15),
+                                           shape: BoxShape.circle,
+                                         ),
+                                         child: const Icon(
+                                           Icons.filter_list,
+                                           size: 16,
+                                           color: RubyTheme.sapphire,
+                                         ),
+                                       )
+                                     else
+                                       Icon(
+                                         Icons.arrow_back_ios_new_rounded,
+                                         size: 16,
+                                         color: RubyTheme.textSecondary(context).withOpacity(0.5),
+                                       ),
+                                     const SizedBox(width: 12),
+                                   ],
+                                 ),
                       ),
                       style: RubyTheme.bodyLarge(
                         context,
@@ -190,28 +207,28 @@ class _ChatInputState extends State<ChatInput> {
     );
   }
 
-  Widget _buildTagSelector() {
-    if (widget.availableTags.isEmpty) return const SizedBox.shrink();
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      height: 48,
-      margin: const EdgeInsets.only(bottom: 12, right: 0, left: 0),
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+  Widget _buildFloatingTagSelector() {
+    return Container(
+      height: 54,
       decoration: BoxDecoration(
-        color: RubyTheme.surface(context).withOpacity(0.9),
-        borderRadius: BorderRadius.circular(RubyTheme.radiusMedium(context)),
+        color: RubyTheme.surface(context).withOpacity(0.95),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: RubyTheme.sapphire.withOpacity(0.1),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 15,
             offset: const Offset(0, 4),
           ),
         ],
       ),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        physics: const ClampingScrollPhysics(),
+        physics: const BouncingScrollPhysics(),
         itemCount: widget.availableTags.length,
         itemBuilder: (context, index) {
           final tag = widget.availableTags[index];
@@ -231,37 +248,24 @@ class _ChatInputState extends State<ChatInput> {
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isSelected
-                      ? RubyTheme.sapphire
-                      : RubyTheme.surfaceVariant(context),
+                  color: isSelected ? RubyTheme.sapphire : Colors.transparent,
                   borderRadius: BorderRadius.circular(100),
                   border: Border.all(
-                    color: isSelected
-                        ? RubyTheme.sapphire
-                        : RubyTheme.textSecondary(context).withOpacity(0.1),
+                    color: isSelected 
+                      ? RubyTheme.sapphire 
+                      : RubyTheme.textSecondary(context).withOpacity(0.1),
                     width: 1,
                   ),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: RubyTheme.sapphire.withOpacity(0.2),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          )
-                        ]
-                      : null,
                 ),
                 child: Center(
                   child: Text(
                     tag,
                     style: RubyTheme.bodyMedium(context).copyWith(
-                      color: isSelected
-                          ? RubyTheme.pureWhite
-                          : RubyTheme.textPrimary(context),
+                      color: isSelected ? RubyTheme.pureWhite : RubyTheme.textPrimary(context),
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      fontSize: 12,
+                      fontSize: 13,
                     ),
                   ),
                 ),

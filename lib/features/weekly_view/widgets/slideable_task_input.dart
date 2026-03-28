@@ -137,9 +137,7 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
         borderRadius: BorderRadius.circular(100),
         boxShadow: RubyTheme.softShadow(context),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(100),
-        child: LayoutBuilder(
+      child: LayoutBuilder(
           builder: (context, constraints) {
             final maxWidth = constraints.maxWidth;
 
@@ -154,31 +152,35 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  // Layer 1: Background Actions (Slides in from left)
-                  Positioned.fill(
-                    child: Transform.translate(
-                      offset: Offset(visualOffset - maxWidth, 0),
-                      child: _buildQuickActionsRow(context, maxWidth),
-                    ),
-                  ),
-
-                  // Layer 2: Foreground Input (Sliding)
-                  // We use Transform to slide it right
-                  Transform.translate(
-                    offset: Offset(visualOffset, 0),
-                    child: Container(
-                      // Ensure opaque background to hide actions when closed
-                      color: RubyTheme.surface(context),
-                      child: ChatInput(
-                        dayOfWeek: widget.dayOfWeek,
-                        onTaskAdded: (text, tags) => widget.onTaskAdded(text, tags),
-                        onTaskRestored: widget.onTaskRestored,
-                        onVoiceTaskAdded: (path, wave, tags) => widget.onVoiceTaskAdded?.call(path, wave, tags),
-                        settingsController: widget.settingsController,
-                        hasActiveFilters:
-                            widget.currentFilter?.hasActiveFilters ?? false,
-                        availableTags: widget.availableTags,
-                      ),
+                  // Layer 1 & 2: Clipped Sliding Content
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(100),
+                    child: Stack(
+                      children: [
+                        // Layer 1: Background Actions
+                        Positioned.fill(
+                          child: Transform.translate(
+                            offset: Offset(visualOffset - maxWidth, 0),
+                            child: _buildQuickActionsRow(context, maxWidth),
+                          ),
+                        ),
+                        // Layer 2: Foreground Input (Sliding)
+                        Transform.translate(
+                          offset: Offset(visualOffset, 0),
+                          child: Container(
+                            color: RubyTheme.surface(context),
+                            child: ChatInput(
+                              dayOfWeek: widget.dayOfWeek,
+                              onTaskAdded: (text, tags) => widget.onTaskAdded(text, tags),
+                              onTaskRestored: widget.onTaskRestored,
+                              onVoiceTaskAdded: (path, wave, tags) => widget.onVoiceTaskAdded?.call(path, wave, tags),
+                              settingsController: widget.settingsController,
+                              hasActiveFilters: widget.currentFilter?.hasActiveFilters ?? false,
+                              availableTags: widget.availableTags,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -186,7 +188,6 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
             );
           },
         ),
-      ),
     );
   }
 
