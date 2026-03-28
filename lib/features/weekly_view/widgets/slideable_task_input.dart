@@ -45,26 +45,24 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _inputFocusNode = FocusNode(); // Controlled from here
   double _dragOffset = 0.0;
-  final double _actionThreshold = 0.4; // 40% swipe to snap
+  final double _actionThreshold = 0.3; // 30% swipe to snap
+  final double _maxRevealRatio = 0.85; // Leave 15% of input visible for return tapping
 
   @override
   void initState() {
     super.initState();
     // Unbounded to allow physics simulations outside 0.0-1.0 range
     _animationController = AnimationController.unbounded(vsync: this);
-
-    _animationController.addListener(() {
-      setState(() {
-        _dragOffset = _animationController.value;
-      });
-    });
+    // Remove setState listener to improve performance
   }
 
   @override
   void dispose() {
     _animationController.dispose();
     _scrollController.dispose();
+    _inputFocusNode.dispose();
     super.dispose();
   }
 
@@ -73,18 +71,23 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
       _animationController.stop();
     }
 
+    // Unfocus keyboard when dragging starts to avoid visual glitches
+    if (_dragOffset == 0 && details.primaryDelta! > 0) {
+      FocusScope.of(context).unfocus();
+    }
+
     // RTL: Dragging RIGHT (positive delta) reveals LEFT actions
     // So we add the delta to the offset
     double newOffset = _dragOffset + details.primaryDelta!;
 
-    // STRICT CLAMPING: 0 to maxWidth during drag
-    newOffset = newOffset.clamp(0.0, maxWidth);
+    // STRICT CLAMPING: 0 to maxWidth * _maxRevealRatio during drag
+    newOffset = newOffset.clamp(0.0, maxWidth * _maxRevealRatio);
 
     setState(() {
       _dragOffset = newOffset;
-      // Sync controller so simulation starts from current position
-      _animationController.value = _dragOffset;
     });
+    // Sync controller directly
+    _animationController.value = _dragOffset;
   }
 
   void _handleDragEnd(DragEndDetails details, double maxWidth) {
@@ -96,13 +99,13 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
     // If velocity is high towards Right (> 500) -> Open
     // If velocity is high towards Left (< -500) -> Close
     // Otherwise, check position threshold
-    if (velocity > 500) {
-      targetOffset = maxWidth; // Open
-    } else if (velocity < -500) {
+    if (velocity > 400) {
+      targetOffset = maxWidth * _maxRevealRatio; // Open
+    } else if (velocity < -400) {
       targetOffset = 0; // Close
     } else {
       if (_dragOffset > maxWidth * _actionThreshold) {
-        targetOffset = maxWidth; // Open
+        targetOffset = maxWidth * _maxRevealRatio; // Open
       } else {
         targetOffset = 0; // Close
       }
@@ -140,37 +143,54 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
       child: LayoutBuilder(
           builder: (context, constraints) {
             final maxWidth = constraints.maxWidth;
-
-            // Clamp value for display to prevent visual gaps/overlap if physics overshoots
-            final visualOffset = _dragOffset.clamp(0.0, maxWidth);
+            final maxRevealWidth = maxWidth * _maxRevealRatio;
 
             return GestureDetector(
               onHorizontalDragUpdate: (details) =>
                   _handleDragUpdate(details, maxWidth),
               onHorizontalDragEnd: (details) =>
                   _handleDragEnd(details, maxWidth),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  // Layer 1 & 2: Clipped Sliding Content
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(100),
-                    child: Stack(
-                      children: [
-                        // Layer 1: Background Actions
-                        Positioned.fill(
+              behavior: HitTestBehavior.opaque,
+              child: AnimatedBuilder(
+                animation: _animationController,
+                builder: (context, child) {
+                  final visualOffset = _animationController.value.clamp(0.0, maxRevealWidth);
+                  
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Layer 1: Background Actions (Clipped to capsule shape)
+                      Positioned.fill(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(100),
                           child: Transform.translate(
                             offset: Offset(visualOffset - maxWidth, 0),
                             child: _buildQuickActionsRow(context, maxWidth),
                           ),
                         ),
-                        // Layer 2: Foreground Input (Sliding)
-                        Transform.translate(
-                          offset: Offset(visualOffset, 0),
+                      ),
+                      
+                      // Layer 2: Foreground Input (Sliding)
+                      // No ClipRRect here to allow floating tags to overflow upwards
+                      Transform.translate(
+                        offset: Offset(visualOffset, 0),
+                        child: GestureDetector(
+                          onTap: () {
+                            if (_animationController.value > 0) {
+                              _animateTo(0, 0);
+                              _inputFocusNode.requestFocus();
+                            }
+                          },
                           child: Container(
-                            color: RubyTheme.surface(context),
+                            // Don't use color here, let ChatInput handle its own background
+                            // but we need a background for the capsule shape if it's not open
+                            decoration: BoxDecoration(
+                              color: RubyTheme.surface(context),
+                              borderRadius: BorderRadius.circular(100),
+                            ),
                             child: ChatInput(
                               dayOfWeek: widget.dayOfWeek,
+                              focusNode: _inputFocusNode,
                               onTaskAdded: (text, tags) => widget.onTaskAdded(text, tags),
                               onTaskRestored: widget.onTaskRestored,
                               onVoiceTaskAdded: (path, wave, tags) => widget.onVoiceTaskAdded?.call(path, wave, tags),
@@ -180,10 +200,10 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ],
+                      ),
+                    ],
+                  );
+                },
               ),
             );
           },
@@ -207,10 +227,12 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
             // In Flutter RTL, pixels=0 is the right-most point.
             // Dragging RIGHT (positive delta in screen space) should close the bar 
             // if we are already at the right-most point (pixels <= 0).
-            if (position.pixels <= 1.0 && details.primaryDelta! > 0) {
-              _handleDragUpdate(details, maxWidth);
-            } else if (position.pixels >= position.maxScrollExtent - 1.0 && details.primaryDelta! < 0) {
-              // Optionally handle overscroll from left to right if needed
+            // Dragging LEFT (negative delta) at any point should help close
+            // if we are already at the left-most scroll point
+            if (position.pixels <= 1.0 && details.primaryDelta! < 0) {
+               _handleDragUpdate(details, maxWidth);
+            } else if (position.pixels >= position.maxScrollExtent - 1.0 && details.primaryDelta! > 0) {
+              // RTL: At the right edge, dragging RIGHT opens more/keeps open
                _handleDragUpdate(details, maxWidth);
             }
           }

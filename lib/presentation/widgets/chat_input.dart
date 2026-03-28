@@ -10,6 +10,7 @@ class ChatInput extends StatefulWidget {
   final SettingsController? settingsController;
   final bool hasActiveFilters;
   final List<String> availableTags;
+  final FocusNode? focusNode;
 
   const ChatInput({
     super.key,
@@ -20,15 +21,18 @@ class ChatInput extends StatefulWidget {
     this.settingsController,
     this.hasActiveFilters = false,
     required this.availableTags,
+    this.focusNode,
   });
 
   @override
   State<ChatInput> createState() => _ChatInputState();
 }
 
-class _ChatInputState extends State<ChatInput> {
+class _ChatInputState extends State<ChatInput> with SingleTickerProviderStateMixin {
+  late final AnimationController _animationController;
+  late final Animation<double> _animation;
   final TextEditingController _controller = TextEditingController();
-  final FocusNode _focusNode = FocusNode();
+  late final FocusNode _focusNode;
   bool _isTyping = false;
   bool _showTagSelector = false;
   List<String> _selectedTags = [];
@@ -36,14 +40,29 @@ class _ChatInputState extends State<ChatInput> {
   @override
   void initState() {
     super.initState();
+    _focusNode = widget.focusNode ?? FocusNode();
     _controller.addListener(_onTextChanged);
     _focusNode.addListener(_onFocusChanged);
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _animation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutBack,
+    );
   }
 
   void _onFocusChanged() {
     if (mounted) {
       setState(() {
         _showTagSelector = _focusNode.hasFocus;
+        if (_showTagSelector) {
+          _animationController.forward();
+        } else {
+          _animationController.reverse();
+        }
       });
     }
   }
@@ -53,7 +72,10 @@ class _ChatInputState extends State<ChatInput> {
     _controller.removeListener(_onTextChanged);
     _focusNode.removeListener(_onFocusChanged);
     _controller.dispose();
-    _focusNode.dispose();
+    _animationController.dispose();
+    if (widget.focusNode == null) {
+      _focusNode.dispose();
+    }
     super.dispose();
   }
 
@@ -87,15 +109,30 @@ class _ChatInputState extends State<ChatInput> {
         vertical: RubyTheme.spacingS(context),
       ),
       child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.bottomCenter,
           children: [
-            // Floating Tag Selector (Separate from input bar)
-            if (_showTagSelector && widget.availableTags.isNotEmpty)
-              _buildFloatingTagSelector(),
-            if (_showTagSelector && widget.availableTags.isNotEmpty)
-              const SizedBox(height: 12),
+            // Floating Tag Selector (Positioned absolutely above)
+            Positioned(
+              bottom: 60, // Positioned above the input bar
+              left: 0,
+              right: 0,
+              child: FadeTransition(
+                opacity: _animation,
+                child: SlideTransition(
+                  position: _animation.drive(
+                    Tween<Offset>(
+                      begin: const Offset(0, 0.2),
+                      end: Offset.zero,
+                    ),
+                  ),
+                  child: widget.availableTags.isNotEmpty ? _buildFloatingTagSelector() : const SizedBox.shrink(),
+                ),
+              ),
+            ),
+            
+            // Input Bar
             Row(
               children: [
                 // Send button
