@@ -193,12 +193,25 @@ class _ChatInputState extends State<ChatInput> {
   Widget _buildTagSelector() {
     if (widget.availableTags.isEmpty) return const SizedBox.shrink();
 
-    return Container(
-      height: 34,
-      margin: const EdgeInsets.only(bottom: 8, right: 4, left: 4),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      height: 48,
+      margin: const EdgeInsets.only(bottom: 12, right: 0, left: 0),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+      decoration: BoxDecoration(
+        color: RubyTheme.surface(context).withOpacity(0.9),
+        borderRadius: BorderRadius.circular(RubyTheme.radiusMedium(context)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
+        physics: const ClampingScrollPhysics(),
         itemCount: widget.availableTags.length,
         itemBuilder: (context, index) {
           final tag = widget.availableTags[index];
@@ -222,18 +235,18 @@ class _ChatInputState extends State<ChatInput> {
                 decoration: BoxDecoration(
                   color: isSelected
                       ? RubyTheme.sapphire
-                      : RubyTheme.surface(context),
+                      : RubyTheme.surfaceVariant(context),
                   borderRadius: BorderRadius.circular(100),
                   border: Border.all(
                     color: isSelected
                         ? RubyTheme.sapphire
-                        : RubyTheme.textSecondary(context).withOpacity(0.2),
+                        : RubyTheme.textSecondary(context).withOpacity(0.1),
                     width: 1,
                   ),
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: RubyTheme.sapphire.withOpacity(0.3),
+                            color: RubyTheme.sapphire.withOpacity(0.2),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           )

@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
-import { Check, Trash2, Clock, Calendar, ListChecks } from 'lucide-react';
+import { Check, Trash2, Clock, Calendar, ListChecks, Pin } from 'lucide-react';
 import { cn } from '../../../shared/lib/cn';
 import type { Task } from '../model/types';
 
@@ -9,11 +9,13 @@ interface TaskCardProps {
     task: Task;
     onToggle: (task: Task) => void;
     onDelete: (taskId: string) => void;
+    onTogglePin: (task: Task) => void;
     onClick: (task: Task) => void;
 }
 
-export const TaskCard = ({ task, onToggle, onDelete, onClick }: TaskCardProps) => {
+export const TaskCard = ({ task, onToggle, onDelete, onTogglePin, onClick }: TaskCardProps) => {
     const isCompleted = task.is_completed || false;
+    const isPinned = task.is_pinned || false;
     const createdDate = task.created ? new Date(task.created) : new Date();
     
     // Extract metadata from data field
@@ -23,6 +25,7 @@ export const TaskCard = ({ task, onToggle, onDelete, onClick }: TaskCardProps) =
     const tags = task.data?.tags || [];
     
     const getAccentColor = () => {
+        if (isPinned) return "bg-orange-500";
         if (isCompleted) return "bg-secondary";
         if (deadline && !isCompleted && deadline < new Date()) return "bg-destructive";
         return "bg-primary";
@@ -38,7 +41,8 @@ export const TaskCard = ({ task, onToggle, onDelete, onClick }: TaskCardProps) =
             onClick={() => onClick(task)}
             className={cn(
                 "relative flex items-center gap-6 p-4 bg-white rounded-full border border-surface-container group cursor-pointer transition-all hover:bg-surface-container-low/30 overflow-hidden",
-                isCompleted && "opacity-60"
+                isCompleted && "opacity-60",
+                isPinned && "border-orange-200 bg-orange-50/10"
             )}
             dir="rtl"
         >
@@ -67,6 +71,7 @@ export const TaskCard = ({ task, onToggle, onDelete, onClick }: TaskCardProps) =
                     )}>
                         {task.text}
                     </h3>
+                    {isPinned && <Pin className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />}
                     {tags.length > 0 && (
                         <div className="flex gap-1 overflow-x-auto no-scrollbar max-w-[120px] shrink-0">
                             {tags.map((tag: string) => (
@@ -102,6 +107,15 @@ export const TaskCard = ({ task, onToggle, onDelete, onClick }: TaskCardProps) =
 
             {/* Right Side: Actions */}
             <div className="flex items-center shrink-0">
+                <button
+                    onClick={(e) => { e.stopPropagation(); onTogglePin(task); }}
+                    className={cn(
+                        "w-8 h-8 flex items-center justify-center rounded-full transition-all mr-1",
+                        isPinned ? "text-orange-500 bg-orange-50" : "text-on-surface-variant hover:text-orange-500 hover:bg-orange-50 md:opacity-0 group-hover:opacity-100"
+                    )}
+                >
+                    <Pin className={cn("w-4 h-4", isPinned && "fill-orange-500")} />
+                </button>
                 <button
                     onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
                     className="w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-red-500 hover:bg-red-50 rounded-full transition-all md:opacity-0 md:-translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 mr-1 sm:mr-2"

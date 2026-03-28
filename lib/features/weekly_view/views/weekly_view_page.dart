@@ -15,6 +15,7 @@ import 'package:ruby/features/search/views/search_screen.dart';
 import 'package:ruby/core/services/auth_service.dart';
 import 'package:ruby/core/utils/ruby_snackbars.dart';
 import 'package:ruby/presentation/screens/auth/login_screen.dart';
+import 'package:ruby/presentation/widgets/tag_management_modal.dart';
 
 class WeeklyViewPage extends StatefulWidget {
   final SettingsController? settingsController;
@@ -276,52 +277,66 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
     final tags = ['الكل', ...taskController.availableTags];
     return Container(
       height: 50,
-      margin: EdgeInsets.symmetric(vertical: 8),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(horizontal: 16),
-        itemCount: tags.length,
-        itemBuilder: (context, index) {
-          final tag = tags[index];
-          final isSelected = (tag == 'الكل' && _currentFilter.selectedTag == null) ||
-                            (tag == _currentFilter.selectedTag);
-          return Padding(
-            padding: const EdgeInsets.only(left: 8.0, top: 4, bottom: 4),
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  if (tag == 'الكل') {
-                    _currentFilter = _currentFilter.copyWith(clearSelectedTag: true);
-                  } else {
-                    _currentFilter = _currentFilter.copyWith(selectedTag: tag);
-                  }
-                });
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected ? RubyTheme.sapphire : Colors.transparent,
-                  borderRadius: BorderRadius.circular(100),
-                  border: Border.all(
-                    color: isSelected ? RubyTheme.sapphire : RubyTheme.textSecondary(context).withOpacity(0.3),
-                    width: 1,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    tag,
-                    style: TextStyle(
-                      color: isSelected ? RubyTheme.pureWhite : RubyTheme.textPrimary(context),
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      fontSize: 14,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12.0, left: 4),
+            child: IconButton(
+              icon: const Icon(Icons.add_circle_outline, color: RubyTheme.sapphire),
+              onPressed: () => showTagManagementModal(context, taskController),
+              tooltip: 'إدارة الوسوم',
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              itemCount: tags.length,
+              itemBuilder: (context, index) {
+                final tag = tags[index];
+                final isSelected = (tag == 'الكل' && _currentFilter.selectedTag == null) ||
+                                  (tag == _currentFilter.selectedTag);
+                return Padding(
+                  padding: const EdgeInsets.only(left: 8.0, top: 4, bottom: 4),
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        if (tag == 'الكل') {
+                          _currentFilter = _currentFilter.copyWith(clearSelectedTag: true);
+                        } else {
+                          _currentFilter = _currentFilter.copyWith(selectedTag: tag);
+                        }
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? RubyTheme.sapphire : Colors.transparent,
+                        borderRadius: BorderRadius.circular(100),
+                        border: Border.all(
+                          color: isSelected ? RubyTheme.sapphire : RubyTheme.textSecondary(context).withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          tag,
+                          style: TextStyle(
+                            color: isSelected ? RubyTheme.pureWhite : RubyTheme.textPrimary(context),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }

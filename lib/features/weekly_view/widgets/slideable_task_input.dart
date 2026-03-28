@@ -204,10 +204,11 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
           if (_scrollController.hasClients) {
             final position = _scrollController.position;
             // In Flutter RTL, pixels=0 is the right-most point.
-            // Dragging LEFT (negative delta) closes the bar (moves offset from maxWidth to 0)
-            if (position.pixels <= 0 && details.primaryDelta! < 0) {
+            // Dragging RIGHT (positive delta in screen space) should close the bar 
+            // if we are already at the right-most point (pixels <= 0).
+            if (position.pixels <= 1.0 && details.primaryDelta! > 0) {
               _handleDragUpdate(details, maxWidth);
-            } else if (position.pixels >= position.maxScrollExtent && details.primaryDelta! > 0) {
+            } else if (position.pixels >= position.maxScrollExtent - 1.0 && details.primaryDelta! < 0) {
               // Optionally handle overscroll from left to right if needed
                _handleDragUpdate(details, maxWidth);
             }
@@ -217,7 +218,7 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
         child: SingleChildScrollView(
           controller: _scrollController,
           scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
+          physics: const ClampingScrollPhysics(),
           padding: EdgeInsets.symmetric(horizontal: RubyTheme.spacingM(context)),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.start,

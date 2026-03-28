@@ -10,6 +10,7 @@ export type Task = {
     id: string;
     text: string;
     is_completed: boolean;
+    is_pinned?: boolean;
     day_of_week: string;
     user: string;
     created: string;

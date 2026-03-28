@@ -137,14 +137,16 @@ export default function TasksPage() {
 
             const mappedRecords = result.items.map(record => {
                 let subtasks: Subtask[] = [];
+                let isPinned = false;
                 if (record.data) {
                     try {
                         const parsedData = typeof record.data === 'string' ? JSON.parse(record.data) : record.data;
                         subtasks = parsedData.subtasks || [];
+                        isPinned = parsedData.isPinned || false;
                     } catch (e) { console.error('Failed to parse task data', e); }
                 }
                 if (!record.text && record.data?.text) record.text = record.data.text;
-                return { ...record, subtasks };
+                return { ...record, subtasks, is_pinned: isPinned };
             });
 
             if (isRefresh) {
@@ -194,7 +196,11 @@ export default function TasksPage() {
     }, []);
 
     const filteredTasks = useMemo(() => {
-        return [...tasks];
+        return [...tasks].sort((a, b) => {
+            if (a.is_pinned && !b.is_pinned) return -1;
+            if (!a.is_pinned && b.is_pinned) return 1;
+            return 0; // Maintain existing order for others
+        });
     }, [tasks]);
 
     const handleCreateTask = async (e: React.FormEvent) => {
@@ -229,6 +235,20 @@ export default function TasksPage() {
             await pb.collection('tasks').update(task.id, { is_completed: !task.is_completed });
             setTasks(prev => prev.map(t => t.id === task.id ? { ...t, is_completed: !t.is_completed } : t));
         } catch (error) { console.error('Failed to toggle task', error); }
+    };
+
+    const handleTogglePin = async (task: Task) => {
+        try {
+            const newPinnedState = !task.is_pinned;
+            const currentData = typeof task.data === 'string' ? JSON.parse(task.data) : task.data || {};
+            const updatedData = { ...currentData, isPinned: newPinnedState };
+            
+            setTasks(prev => prev.map(t => t.id === task.id ? { ...t, is_pinned: newPinnedState, data: updatedData } : t));
+            
+            await pb.collection('tasks').update(task.id, {
+                data: JSON.stringify(updatedData)
+            });
+        } catch (error) { console.error('Failed to toggle pin', error); }
     };
 
     const handleDeleteTask = async (taskId: string) => {
@@ -615,6 +635,7 @@ export default function TasksPage() {
                                     task={task}
                                     onToggle={handleToggleTask}
                                     onDelete={handleDeleteTask}
+                                    onTogglePin={handleTogglePin}
                                     onClick={(t) => { setSelectedTask(t); setEditedTitle(t.text); setIsDetailsOpen(true); }}
                                 />
                             </div>
