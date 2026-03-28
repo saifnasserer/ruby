@@ -66,6 +66,9 @@ class SyncService {
   bool _isSyncing = false;
   bool get isSyncing => _isSyncing;
 
+  // Track tasks currently being uploaded to prevent duplicate uploads
+  final Set<String> _inFlightTasks = {};
+
   /// Public wrapper for creating a task
   Future<void> createTask(Task task) async {
     await _uploadTask(task);
@@ -239,6 +242,14 @@ class SyncService {
 
   /// Upload or Update a task to Cloud
   Future<void> _uploadTask(Task task, {String? remoteId}) async {
+    // Prevent duplicate concurrent uploads for the same task
+    if (_inFlightTasks.contains(task.id)) {
+      debugPrint('SyncService: Task ${task.id} is already being uploaded. Skipping.');
+      return;
+    }
+
+    _inFlightTasks.add(task.id);
+
     try {
       if (!AuthService.instance.isAuthenticated) {
         await _addToOfflineQueue(task.id, 'upsert');
@@ -261,7 +272,18 @@ class SyncService {
         await _pb.collection(_collectionName).update(remoteId, body: body);
       } else {
         try {
-          await _pb.collection(_collectionName).create(body: body);
+          // Double check if already exists by local_id before creating, 
+          // as a final safety measure against race conditions
+          final records = await _pb.collection(_collectionName).getList(
+                filter: 'local_id = "${task.id}" && user = "$userId"',
+              );
+          
+          if (records.items.isNotEmpty) {
+            debugPrint('SyncService: Task ${task.id} already exists on server. Updating instead.');
+            await _pb.collection(_collectionName).update(records.items.first.id, body: body);
+          } else {
+            await _pb.collection(_collectionName).create(body: body);
+          }
         } catch (e) {
           // If it fails with a relation error, it might be a multi-relation field
           if (e.toString().contains('validation_missing_rel_records')) {
@@ -283,6 +305,8 @@ class SyncService {
       } else {
         await _addToOfflineQueue(task.id, 'upsert');
       }
+    } finally {
+      _inFlightTasks.remove(task.id);
     }
   }
 

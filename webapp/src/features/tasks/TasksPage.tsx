@@ -57,6 +57,7 @@ export default function TasksPage() {
     const [isTagsModalOpen, setIsTagsModalOpen] = useState(false);
     const [newTagInput, setNewTagInput] = useState('');
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
+    const [isCreating, setIsCreating] = useState(false);
 
     const observer = useRef<IntersectionObserver | null>(null);
     const lastTaskElementRef = useCallback((node: HTMLDivElement | null) => {
@@ -198,7 +199,8 @@ export default function TasksPage() {
 
     const handleCreateTask = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newTaskText.trim()) return;
+        if (!newTaskText.trim() || isCreating) return;
+        setIsCreating(true);
         const now = new Date().toISOString();
         const taskId = Date.now().toString();
         const taskData = {
@@ -214,8 +216,12 @@ export default function TasksPage() {
             setSelectedTags(activeTab !== 'الكل' ? [activeTab] : []);
             await pb.collection('tasks').create(taskData);
             setPage(1); // Reset to catch new task
-            fetchTasks(1, true);
-        } catch (error) { console.error('Failed to create task', error); }
+            await fetchTasks(1, true);
+        } catch (error) { 
+            console.error('Failed to create task', error); 
+        } finally {
+            setIsCreating(false);
+        }
     };
 
     const handleToggleTask = async (task: Task) => {
