@@ -138,15 +138,17 @@ export default function TasksPage() {
             const mappedRecords = result.items.map(record => {
                 let subtasks: Subtask[] = [];
                 let isPinned = false;
-                if (record.data) {
+                const fieldData = record.data;
+                if (fieldData) {
                     try {
-                        const parsedData = typeof record.data === 'string' ? JSON.parse(record.data) : record.data;
+                        const parsedData = typeof fieldData === 'string' ? JSON.parse(fieldData) : fieldData;
                         subtasks = parsedData.subtasks || [];
-                        isPinned = parsedData.isPinned || false;
+                        // Check multiple potential keys for pinning
+                        isPinned = parsedData.isPinned || parsedData.is_pinned || record.is_pinned || false;
                     } catch (e) { console.error('Failed to parse task data', e); }
                 }
                 if (!record.text && record.data?.text) record.text = record.data.text;
-                return { ...record, subtasks, is_pinned: isPinned };
+                return { ...record, subtasks, is_pinned: !!isPinned };
             });
 
             if (isRefresh) {
@@ -190,7 +192,10 @@ export default function TasksPage() {
         const userId = pb.authStore.model?.id;
         pb.collection('tasks').subscribe<Task>('*', (e) => {
             if (e.record.user !== userId) return;
-            // Real-time: For now simpler to re-fetch first page
+            if (e.action === 'create' || e.action === 'update' || e.action === 'delete') {
+                setPage(1);
+                fetchTasks(1, true);
+            }
         });
         return () => { pb.collection('tasks').unsubscribe('*'); };
     }, []);
@@ -215,7 +220,7 @@ export default function TasksPage() {
             day_of_week: new Date().toLocaleDateString('ar-EG', { weekday: 'long' }),
             user: pb.authStore.model?.id,
             local_id: taskId,
-            data: { id: taskId, text: newTaskText, createdAt: now, subtasks: [], tags: selectedTags },
+            data: { id: taskId, text: newTaskText, createdAt: now, subtasks: [], tags: selectedTags, isPinned: false, is_pinned: false },
         };
         try {
             setNewTaskText('');
@@ -241,12 +246,12 @@ export default function TasksPage() {
         try {
             const newPinnedState = !task.is_pinned;
             const currentData = typeof task.data === 'string' ? JSON.parse(task.data) : task.data || {};
-            const updatedData = { ...currentData, isPinned: newPinnedState };
+            const updatedData = { ...currentData, isPinned: newPinnedState, is_pinned: newPinnedState };
             
             setTasks(prev => prev.map(t => t.id === task.id ? { ...t, is_pinned: newPinnedState, data: updatedData } : t));
             
             await pb.collection('tasks').update(task.id, {
-                data: JSON.stringify(updatedData)
+                data: updatedData
             });
         } catch (error) { console.error('Failed to toggle pin', error); }
     };
@@ -277,7 +282,7 @@ export default function TasksPage() {
                 day_of_week: 'config',
                 user: userId,
                 local_id: '__global_tags__',
-                data: JSON.stringify({ id: '__global_tags__', tags: newTags }),
+                data: { id: '__global_tags__', tags: newTags },
             };
 
             if (recordId) {
@@ -332,7 +337,7 @@ export default function TasksPage() {
                 
                 // Fire and forget update to PocketBase for this task
                 pb.collection('tasks').update(task.id, { 
-                    data: JSON.stringify(updatedData) 
+                    data: updatedData 
                 }).catch(err => console.error('Failed to update task tag during rename', err));
                 
                 return { ...task, data: updatedData };
@@ -358,7 +363,7 @@ export default function TasksPage() {
             setTasks(prev => prev.map(t => t.id === task.id ? updatedTask : t));
             
             await pb.collection('tasks').update(task.id, {
-                data: JSON.stringify(updatedData)
+                data: updatedData
             });
         } catch (error) {
             console.error('Failed to toggle task tag', error);
@@ -379,7 +384,7 @@ export default function TasksPage() {
             const updatedData = { ...selectedTask.data, text: editedTitle };
             await pb.collection('tasks').update(selectedTask.id, {
                 text: editedTitle,
-                data: JSON.stringify(updatedData)
+                data: updatedData
             });
         } catch (error) { console.error('Failed to update task title', error); }
     };
@@ -394,7 +399,7 @@ export default function TasksPage() {
             setSelectedTask(updatedTask);
             setTasks(prev => prev.map(t => t.id === selectedTask.id ? updatedTask : t));
             await pb.collection('tasks').update(selectedTask.id, {
-                data: JSON.stringify({ ...selectedTask.data, subtasks: updatedSubtasks })
+                data: { ...selectedTask.data, subtasks: updatedSubtasks }
             });
         } catch (error) { console.error('Failed to toggle subtask', error); }
     };
@@ -417,7 +422,7 @@ export default function TasksPage() {
             setTasks(prev => prev.map(t => t.id === selectedTask.id ? updatedTask : t));
             setNewSubtaskText('');
             await pb.collection('tasks').update(selectedTask.id, {
-                data: JSON.stringify({ ...selectedTask.data, subtasks: updatedSubtasks })
+                data: { ...selectedTask.data, subtasks: updatedSubtasks }
             });
         } catch (error) { console.error('Failed to add subtask', error); }
     };
@@ -430,7 +435,7 @@ export default function TasksPage() {
             setSelectedTask(updatedTask);
             setTasks(prev => prev.map(t => t.id === selectedTask.id ? updatedTask : t));
             await pb.collection('tasks').update(selectedTask.id, {
-                data: JSON.stringify({ ...selectedTask.data, subtasks: updatedSubtasks })
+                data: { ...selectedTask.data, subtasks: updatedSubtasks }
             });
         } catch (error) { console.error('Failed to delete subtask', error); }
     };

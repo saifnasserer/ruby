@@ -106,11 +106,14 @@ export const TaskCard = ({ task, onToggle, onDelete, onTogglePin, onClick }: Tas
             </div>
 
             {/* Right Side: Actions */}
-            <div className="flex items-center shrink-0">
+            <div className={cn(
+                "flex items-center shrink-0 transition-all duration-300 gap-1",
+                isPinned ? "w-18" : "w-0 group-hover:w-18 overflow-hidden"
+            )}>
                 <button
                     onClick={(e) => { e.stopPropagation(); onTogglePin(task); }}
                     className={cn(
-                        "w-8 h-8 flex items-center justify-center rounded-full transition-all mr-1",
+                        "w-8 h-8 flex items-center justify-center rounded-full transition-all",
                         isPinned ? "text-orange-500 bg-orange-50" : "text-on-surface-variant hover:text-orange-500 hover:bg-orange-50 md:opacity-0 group-hover:opacity-100"
                     )}
                 >
@@ -118,7 +121,7 @@ export const TaskCard = ({ task, onToggle, onDelete, onTogglePin, onClick }: Tas
                 </button>
                 <button
                     onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
-                    className="w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-red-500 hover:bg-red-50 rounded-full transition-all md:opacity-0 md:-translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 mr-1 sm:mr-2"
+                    className="w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-red-500 hover:bg-red-50 rounded-full transition-all md:opacity-0 md:-translate-x-2 group-hover:opacity-100 group-hover:translate-x-0"
                 >
                     <Trash2 className="w-5 h-5" />
                 </button>
