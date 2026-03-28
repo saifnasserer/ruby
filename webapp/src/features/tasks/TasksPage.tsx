@@ -122,6 +122,28 @@ export default function TasksPage() {
                 filter: filterString,
             });
 
+            let pinnedTasks: Task[] = [];
+            if (pageNum === 1) {
+                try {
+                    // Fetch all pinned tasks for this user, regardless of date/page
+                    const pinnedResult = await pb.collection('tasks').getFullList<Task>({
+                        filter: `user = "${userId}" && (data.isPinned = true || data.is_pinned = true || is_pinned = true)`,
+                        sort: '-created',
+                    });
+                    pinnedTasks = pinnedResult.map(record => {
+                        let subtasks: Subtask[] = [];
+                        const fieldData = record.data;
+                        if (fieldData) {
+                            try {
+                                const parsedData = typeof fieldData === 'string' ? JSON.parse(fieldData) : fieldData;
+                                subtasks = parsedData.subtasks || [];
+                            } catch (e) { }
+                        }
+                        return { ...record, subtasks, is_pinned: true };
+                    });
+                } catch (e) { console.error('Failed to fetch pinned tasks', e); }
+            }
+
             // Handle Global Tags Sync - Fetch specifically
             if (pageNum === 1) {
                 try {
@@ -152,9 +174,25 @@ export default function TasksPage() {
             });
 
             if (isRefresh) {
-                setTasks(mappedRecords);
+                // Merge pinned tasks and regular tasks, removing duplicates
+                const allTasks = [...pinnedTasks, ...mappedRecords];
+                const seen = new Set();
+                const uniqueTasks = allTasks.filter(t => {
+                    if (seen.has(t.id)) return false;
+                    seen.add(t.id);
+                    return true;
+                });
+                setTasks(uniqueTasks);
             } else {
-                setTasks(prev => [...prev, ...mappedRecords]);
+                setTasks(prev => {
+                    const all = [...prev, ...mappedRecords];
+                    const seen = new Set();
+                    return all.filter(t => {
+                        if (seen.has(t.id)) return false;
+                        seen.add(t.id);
+                        return true;
+                    });
+                });
             }
 
             setHasMore(result.items.length === PAGE_SIZE);
