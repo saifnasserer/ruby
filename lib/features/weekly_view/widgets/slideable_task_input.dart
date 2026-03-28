@@ -12,12 +12,13 @@ import '../../analysis/views/analysis_page.dart';
 
 class SlideableTaskInput extends StatefulWidget {
   final String dayOfWeek;
-  final Function(String) onTaskAdded;
+  final Function(String, List<String>) onTaskAdded;
   final Function(String, String)? onTaskRestored;
-  final Function(String, List<double>?)? onVoiceTaskAdded;
+  final Function(String, List<double>?, List<String>)? onVoiceTaskAdded;
   final Future<void> Function()? onSyncTap;
 
   final SettingsController settingsController;
+  final List<String> availableTags;
   final VoidCallback? onSearchTap;
   final VoidCallback? onFilterTap;
   final TaskFilter? currentFilter;
@@ -27,6 +28,7 @@ class SlideableTaskInput extends StatefulWidget {
     required this.dayOfWeek,
     required this.onTaskAdded,
     required this.settingsController,
+    required this.availableTags,
     this.onTaskRestored,
     this.onVoiceTaskAdded,
     this.onSyncTap,
@@ -42,6 +44,7 @@ class SlideableTaskInput extends StatefulWidget {
 class _SlideableTaskInputState extends State<SlideableTaskInput>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
+  final ScrollController _scrollController = ScrollController();
   double _dragOffset = 0.0;
   final double _actionThreshold = 0.4; // 40% swipe to snap
 
@@ -61,6 +64,7 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
   @override
   void dispose() {
     _animationController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -148,12 +152,13 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
               onHorizontalDragEnd: (details) =>
                   _handleDragEnd(details, maxWidth),
               child: Stack(
+                clipBehavior: Clip.none,
                 children: [
                   // Layer 1: Background Actions (Slides in from left)
                   Positioned.fill(
                     child: Transform.translate(
                       offset: Offset(visualOffset - maxWidth, 0),
-                      child: _buildQuickActionsRow(context),
+                      child: _buildQuickActionsRow(context, maxWidth),
                     ),
                   ),
 
@@ -166,12 +171,13 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
                       color: RubyTheme.surface(context),
                       child: ChatInput(
                         dayOfWeek: widget.dayOfWeek,
-                        onTaskAdded: widget.onTaskAdded,
+                        onTaskAdded: (text, tags) => widget.onTaskAdded(text, tags),
                         onTaskRestored: widget.onTaskRestored,
-                        onVoiceTaskAdded: widget.onVoiceTaskAdded,
+                        onVoiceTaskAdded: (path, wave, tags) => widget.onVoiceTaskAdded?.call(path, wave, tags),
                         settingsController: widget.settingsController,
                         hasActiveFilters:
                             widget.currentFilter?.hasActiveFilters ?? false,
+                        availableTags: widget.availableTags,
                       ),
                     ),
                   ),
@@ -184,16 +190,35 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
     );
   }
 
-  Widget _buildQuickActionsRow(BuildContext context) {
+  Widget _buildQuickActionsRow(BuildContext context, double maxWidth) {
     // Match theme color from ChatInput
     final themeColor = RubyTheme.surface(context);
 
     return Container(
       color: themeColor,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        padding: EdgeInsets.symmetric(horizontal: RubyTheme.spacingM(context)),
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragUpdate: (details) {
+          // If we are scrolling the list, let the ScrollView handle it
+          // UNLESS we are at the edge and trying to close the bar
+          if (_scrollController.hasClients) {
+            final position = _scrollController.position;
+            // In Flutter RTL, pixels=0 is the right-most point.
+            // Dragging LEFT (negative delta) closes the bar (moves offset from maxWidth to 0)
+            if (position.pixels <= 0 && details.primaryDelta! < 0) {
+              _handleDragUpdate(details, maxWidth);
+            } else if (position.pixels >= position.maxScrollExtent && details.primaryDelta! > 0) {
+              // Optionally handle overscroll from left to right if needed
+               _handleDragUpdate(details, maxWidth);
+            }
+          }
+        },
+        onHorizontalDragEnd: (details) => _handleDragEnd(details, maxWidth),
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.symmetric(horizontal: RubyTheme.spacingM(context)),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
@@ -320,14 +345,6 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
                 ).showSnackBar(SnackBar(content: Text('جاري المزامنة...')));
                 if (widget.onSyncTap != null) {
                   await widget.onSyncTap!();
-                  // if (context.mounted) {
-                  //   ScaffoldMessenger.of(context).showSnackBar(
-                  //     SnackBar(
-                  //       content: Text('تمت المزامنة بنجاح!'),
-                  //       backgroundColor: Colors.green,
-                  //     ),
-                  //   );
-                  // }
                 }
               } else {
                 Navigator.of(context).push(
@@ -344,7 +361,8 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
         ],
       ),
     ),
-  );
+  ),
+    );
 }
 
   Widget _buildQuickActionButton(
@@ -359,16 +377,14 @@ class _SlideableTaskInputState extends State<SlideableTaskInput>
       child: Container(
         padding: EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color:
-              color, // Passed from buildQuickActionsRow, which is surfaceVariant
+          color: color,
           shape: BoxShape.circle,
-          // boxShadow: RubyTheme.softShadow,
         ),
         child: Icon(
           icon,
           color: RubyTheme.textPrimary(context),
           size: 24,
-        ), // Bigger icon (26->28)
+        ),
       ),
     );
   }

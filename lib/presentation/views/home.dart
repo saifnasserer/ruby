@@ -266,14 +266,25 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
         }
       }
     });
-    // Save tasks after toggling
+
     _saveTasks();
   }
 
-  void _addTaskToCurrentDay(String taskText) {
+  void _addTaskToCurrentDay(String taskText, List<String> tags) {
     final currentDate = _currentWeekDates[_selectedIndex];
     final dateKey = _getDateKey(currentDate);
     _addTask(dateKey, taskText);
+  }
+
+  void _addVoiceTaskToCurrentDay(
+    String audioPath,
+    List<double>? waveform,
+    List<String> tags, [
+    String? transcription,
+  ]) {
+    final currentDate = _currentWeekDates[_selectedIndex];
+    final dateKey = _getDateKey(currentDate);
+    _addTask(dateKey, transcription ?? "Voice Task");
   }
 
   void _restoreTask(String dateKey, String taskId) {
@@ -874,82 +885,6 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                             index,
                           ), // Important for AnimatedSwitcher
                           children: [
-                            // Migration button (only show on today if there are unfinished tasks in past days)
-                            // if (isToday && _hasUnfinishedTasksInPastDays())
-                            //   Container(
-                            //     margin: EdgeInsets.symmetric(
-                            //       horizontal: RubyTheme.spacingM(context),
-                            //       vertical: RubyTheme.spacingS(context),
-                            //     ),
-                            //     child: GestureDetector(
-                            //       onTap: _migrateUnfinishedTasksToToday,
-                            //       child: AnimatedContainer(
-                            //         duration: const Duration(milliseconds: 400),
-                            //         curve: Curves.easeInOutCubic,
-                            //         padding: EdgeInsets.symmetric(
-                            //           horizontal: RubyTheme.spacingL(context),
-                            //           vertical: RubyTheme.spacingM(context),
-                            //         ),
-                            //         decoration: BoxDecoration(
-                            //           gradient: RubyTheme.rubyGradient,
-                            //           borderRadius: BorderRadius.circular(
-                            //             RubyTheme.radiusLarge(context),
-                            //           ),
-                            //           boxShadow: RubyTheme.softShadow,
-                            //         ),
-                            //         child: Row(
-                            //           mainAxisAlignment: MainAxisAlignment.center,
-                            //           children: [
-                            //             Icon(
-                            //               Icons.schedule_rounded,
-                            //               color: RubyTheme.pureWhite,
-                            //               size: 20,
-                            //             ),
-                            //             SizedBox(
-                            //               width: RubyTheme.spacingS(context),
-                            //             ),
-                            //             Text(
-                            //               'نقل التاسكات غير المكتملة من الأيام الماضية',
-                            //               style: RubyTheme.bodyLarge(context)
-                            //                   .copyWith(
-                            //                     color: RubyTheme.pureWhite,
-                            //                     fontWeight: FontWeight.w600,
-                            //                   ),
-                            //             ),
-                            //             SizedBox(
-                            //               width: RubyTheme.spacingS(context),
-                            //             ),
-                            //             Container(
-                            //               padding: EdgeInsets.symmetric(
-                            //                 horizontal: RubyTheme.spacingS(
-                            //                   context,
-                            //                 ),
-                            //                 vertical: RubyTheme.spacingXS(
-                            //                   context,
-                            //                 ),
-                            //               ),
-                            //               decoration: BoxDecoration(
-                            //                 color: RubyTheme.pureWhite
-                            //                     .withOpacity(0.2),
-                            //                 borderRadius: BorderRadius.circular(
-                            //                   RubyTheme.radiusMedium(context),
-                            //                 ),
-                            //               ),
-                            //               child: Text(
-                            //                 '${_getUnfinishedTasksCountInPastDays()}',
-                            //                 style: RubyTheme.bodyMedium(context)
-                            //                     .copyWith(
-                            //                       color: RubyTheme.pureWhite,
-                            //                       fontWeight: FontWeight.w700,
-                            //                     ),
-                            //               ),
-                            //             ),
-                            //           ],
-                            //         ),
-                            //       ),
-                            //     ),
-                            //   ),
-
                             // Chat History + Active Tasks
                             Expanded(
                               child: _buildChatHistoryView(
@@ -963,8 +898,10 @@ class _TodoState extends State<Todo> with TickerProviderStateMixin {
                             // Chat input
                             ChatInput(
                               dayOfWeek: displayText,
-                              onTaskAdded: _addTaskToCurrentDay,
+                              onTaskAdded: (text, tags) => _addTaskToCurrentDay(text, tags),
                               onTaskRestored: _restoreTask,
+                              onVoiceTaskAdded: (path, wave, tags) => _addVoiceTaskToCurrentDay(path, wave, tags),
+                              availableTags: const [],
                             ),
                           ],
                         ),

@@ -9,7 +9,16 @@ class TaskController extends ChangeNotifier {
   Map<String, List<Task>> _tasks = {};
   List<String> _availableTags = [];
 
-  Map<String, List<Task>> get tasks => _tasks;
+  Map<String, List<Task>> get tasks {
+    final Map<String, List<Task>> filteredTasks = {};
+    _tasks.forEach((key, value) {
+      if (key != 'config') {
+        filteredTasks[key] = value.where((task) => task.id != '__global_tags__').toList();
+      }
+    });
+    return filteredTasks;
+  }
+  
   List<String> get availableTags => _availableTags;
 
   // Map to store draft subtask text for each task: {taskId: draftText}
@@ -185,8 +194,11 @@ class TaskController extends ChangeNotifier {
     final savedTasks = await StorageService.loadTasks();
     _tasks = savedTasks;
     
-    // Load available tags
+    // Load available tags from storage first
     _availableTags = await StorageService.loadAvailableTags();
+    
+    // Check for synced global tags
+    _updateTagsFromMetaTask();
     
     _movePinnedTasksToToday();
     notifyListeners();
@@ -195,10 +207,39 @@ class TaskController extends ChangeNotifier {
     SyncService.instance.sync().then((_) {
       StorageService.loadTasks().then((newTasks) {
         _tasks = newTasks;
+        _updateTagsFromMetaTask();
         notifyListeners();
       });
-      // Also sync tags if needed later
     });
+  }
+
+  void _updateTagsFromMetaTask() {
+    final configTasks = _tasks['config'] ?? [];
+    final metaTaskIndex = configTasks.indexWhere((t) => t.id == '__global_tags__');
+    if (metaTaskIndex != -1) {
+      final metaTask = configTasks[metaTaskIndex];
+      if (metaTask.tags.isNotEmpty) {
+        // Merge or replace? Let's replace with synced master list
+        _availableTags = List<String>.from(metaTask.tags);
+        StorageService.saveAvailableTags(_availableTags);
+      }
+    }
+  }
+
+  Future<void> _syncGlobalTags() async {
+    final now = DateTime.now();
+    final metaTask = Task(
+      id: '__global_tags__',
+      text: 'Global Tags Configuration',
+      createdAt: now,
+      updatedAt: now,
+      dayOfWeek: 'config',
+      tags: _availableTags,
+    );
+
+    _tasks['config'] = [metaTask];
+    await _saveTasks();
+    SyncService.instance.updateTask(metaTask);
   }
 
   /// Save tasks to storage
@@ -501,6 +542,7 @@ class TaskController extends ChangeNotifier {
       _availableTags.add(tag);
       StorageService.saveAvailableTags(_availableTags);
       notifyListeners();
+      _syncGlobalTags();
     }
   }
 
@@ -509,6 +551,7 @@ class TaskController extends ChangeNotifier {
       _availableTags.remove(tag);
       StorageService.saveAvailableTags(_availableTags);
       notifyListeners();
+      _syncGlobalTags();
     }
   }
 
@@ -533,6 +576,7 @@ class TaskController extends ChangeNotifier {
       
       StorageService.saveAvailableTags(_availableTags);
       _saveTasks();
+      _syncGlobalTags();
       notifyListeners();
     }
   }

@@ -82,7 +82,7 @@ export default function TasksPage() {
 
             if (pageNum > 1) setIsLoadingMore(true);
 
-            let filterString = `user = "${userId}"`;
+            let filterString = `user = "${userId}" && local_id != "__global_tags__"`;
             if (activeTab !== 'الكل') {
                 filterString += ` && data ~ "${activeTab}"`;
             }
@@ -120,6 +120,19 @@ export default function TasksPage() {
                 sort: sortBy === 'alphabetical' ? 'text' : sortBy === 'oldest' ? 'created' : '-created',
                 filter: filterString,
             });
+
+            // Handle Global Tags Sync - Fetch specifically
+            if (pageNum === 1) {
+                try {
+                    const tagResult = await pb.collection('tasks').getFirstListItem(`user = "${userId}" && local_id = "__global_tags__"`);
+                    if (tagResult) {
+                        const data = typeof tagResult.data === 'string' ? JSON.parse(tagResult.data) : tagResult.data;
+                        if (data.tags && Array.isArray(data.tags) && data.tags.length > 0) {
+                            setAvailableTags(data.tags);
+                        }
+                    }
+                } catch (e) { /* ignore if not found */ }
+            }
 
             const mappedRecords = result.items.map(record => {
                 let subtasks: Subtask[] = [];
@@ -220,18 +233,53 @@ export default function TasksPage() {
         } catch (error) { console.error('Failed to delete task', error); }
     };
 
+    const syncGlobalTags = async (newTags: string[]) => {
+        try {
+            const userId = pb.authStore.model?.id;
+            if (!userId) return;
+
+            // Try to find existing record
+            let recordId = '';
+            try {
+                const existing = await pb.collection('tasks').getFirstListItem(`user = "${userId}" && local_id = "__global_tags__"`);
+                recordId = existing.id;
+            } catch (e) { /* not found */ }
+
+            const taskData = {
+                text: 'Global Tags Configuration',
+                is_completed: false,
+                day_of_week: 'config',
+                user: userId,
+                local_id: '__global_tags__',
+                data: JSON.stringify({ id: '__global_tags__', tags: newTags }),
+            };
+
+            if (recordId) {
+                await pb.collection('tasks').update(recordId, taskData);
+            } else {
+                await pb.collection('tasks').create(taskData);
+            }
+        } catch (error) {
+            console.error('Failed to sync global tags', error);
+        }
+    };
+
     const handleAddGlobalTag = () => {
         if (!newTagInput.trim()) return;
         if (availableTags.includes(newTagInput.trim())) return;
-        setAvailableTags(prev => [...prev, newTagInput.trim()]);
+        const updated = [...availableTags, newTagInput.trim()];
+        setAvailableTags(updated);
         setNewTagInput('');
+        syncGlobalTags(updated);
     };
 
     const handleDeleteGlobalTag = (tagToDelete: string) => {
         if (!window.confirm(`هل أنت متأكد من حذف التصنيف "${tagToDelete}"؟`)) return;
-        setAvailableTags(prev => prev.filter(t => t !== tagToDelete));
+        const updated = availableTags.filter(t => t !== tagToDelete);
+        setAvailableTags(updated);
         if (activeTab === tagToDelete) setActiveTab('الكل');
         if (selectedTags.includes(tagToDelete)) setSelectedTags(prev => prev.filter(t => t !== tagToDelete));
+        syncGlobalTags(updated);
     };
 
     const handleEditGlobalTag = (oldTag: string) => {
@@ -243,7 +291,9 @@ export default function TasksPage() {
         }
 
         const trimmedNewTag = newTag.trim();
-        setAvailableTags(prev => prev.map(t => t === oldTag ? trimmedNewTag : t));
+        const updated = availableTags.map(t => t === oldTag ? trimmedNewTag : t);
+        setAvailableTags(updated);
+        syncGlobalTags(updated);
         
         if (activeTab === oldTag) setActiveTab(trimmedNewTag);
         setSelectedTags(prev => prev.map(t => t === oldTag ? trimmedNewTag : t));

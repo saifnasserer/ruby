@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/ruby_theme.dart';
-// import '../../core/services/audio_recorder_service.dart';
+import '../../../core/theme/ruby_theme.dart';
 import '../../features/settings/controllers/settings_controller.dart';
 
 class ChatInput extends StatefulWidget {
   final String dayOfWeek;
-  final Function(String) onTaskAdded;
+  final Function(String, List<String>) onTaskAdded;
   final Function(String, String)? onTaskRestored;
-  final Function(String, List<double>?)? onVoiceTaskAdded;
+  final Function(String, List<double>?, List<String>)? onVoiceTaskAdded;
   final SettingsController? settingsController;
   final bool hasActiveFilters;
+  final List<String> availableTags;
 
   const ChatInput({
     super.key,
@@ -19,6 +19,7 @@ class ChatInput extends StatefulWidget {
     this.onVoiceTaskAdded,
     this.settingsController,
     this.hasActiveFilters = false,
+    required this.availableTags,
   });
 
   @override
@@ -28,160 +29,125 @@ class ChatInput extends StatefulWidget {
 class _ChatInputState extends State<ChatInput> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  // final AudioRecorderService _audioRecorderService = AudioRecorderService();
   bool _isTyping = false;
-  // bool _isRecording = false;
+  List<String> _selectedTags = [];
 
   @override
   void initState() {
     super.initState();
-    _controller.addListener(() {
-      setState(() {
-        _isTyping = _controller.text.trim().isNotEmpty;
-      });
-    });
+    _controller.addListener(_onTextChanged);
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onTextChanged);
     _controller.dispose();
     _focusNode.dispose();
-    // _audioRecorderService.dispose();
     super.dispose();
+  }
+
+  void _onTextChanged() {
+    final text = _controller.text.trim();
+    if (text.isNotEmpty != _isTyping) {
+      setState(() {
+        _isTyping = text.isNotEmpty;
+      });
+    }
   }
 
   void _sendTask() {
     final taskText = _controller.text.trim();
     if (taskText.isNotEmpty) {
-      widget.onTaskAdded(taskText);
+      widget.onTaskAdded(taskText, _selectedTags);
       _controller.clear();
-      // Keep keyboard open for continuous task entry
-      // _focusNode.unfocus(); // Removed to prevent keyboard dismissal
+      setState(() {
+        _selectedTags = [];
+      });
     }
   }
 
-  // Future<void> _handleVoiceRecord() async {
-  //   if (_isRecording) {
-  //     // Stop recording
-  //     final result = await _audioRecorderService.stopRecording();
-  //     setState(() {
-  //       _isRecording = false;
-  //     });
-  //
-  //     if (result['path'] != null && widget.onVoiceTaskAdded != null) {
-  //       widget.onVoiceTaskAdded!(
-  //         result['path']!,
-  //         result['waveformData'] as List<double>?,
-  //       );
-  //     }
-  //   } else {
-  //     // Start recording
-  //     final hasPermission = await _audioRecorderService.hasPermission();
-  //     if (hasPermission) {
-  //       final fileName = 'voice_task_${DateTime.now().millisecondsSinceEpoch}';
-  //       await _audioRecorderService.startRecording(fileName);
-  //       setState(() {
-  //         _isRecording = true;
-  //       });
-  //     } else {
-  //       // Handle permission denial
-  //       if (mounted) {
-  //         ScaffoldMessenger.of(context).showSnackBar(
-  //           const SnackBar(
-  //             content: Text('يجب السماح بالوصول للميكروفون لتسجيل الصوت'),
-  //           ),
-  //         );
-  //       }
-  //     }
-  //   }
-  // }
-
   @override
   Widget build(BuildContext context) {
-    // Get theme color from settings or use default
-    // final isLightColor = themeColor.computeLuminance() > 0.5;
     final accentColor = RubyTheme.priorityLow;
 
     return Container(
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: RubyTheme.spacingM(context),
-          vertical: RubyTheme.spacingS(context),
-        ),
-        child: SafeArea(
-          child: Row(
-            children: [
-              // Send/Record button
-              if (_isTyping) // Only show button when typing
-                GestureDetector(
-                  // onTap: _isTyping ? _sendTask : _handleVoiceRecord,
-                  onTap: _sendTask,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    width: RubyTheme.spacingL(context) * 2,
-                    height: RubyTheme.spacingL(context) * 2,
+      padding: EdgeInsets.symmetric(
+        horizontal: RubyTheme.spacingM(context),
+        vertical: RubyTheme.spacingS(context),
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Tag Selector Row
+            _buildTagSelector(),
+            Row(
+              children: [
+                // Send button
+                if (_isTyping)
+                  GestureDetector(
+                    onTap: _sendTask,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      width: RubyTheme.spacingL(context) * 2,
+                      height: RubyTheme.spacingL(context) * 2,
+                      decoration: BoxDecoration(
+                        color: accentColor,
+                        shape: BoxShape.circle,
+                        boxShadow: RubyTheme.softShadow(context),
+                      ),
+                      child: Transform(
+                        alignment: Alignment.center,
+                        transform: Matrix4.identity()..scale(-1.0, 1.0),
+                        child: Icon(
+                          Icons.send_rounded,
+                          color: RubyTheme.pureWhite,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                if (_isTyping) SizedBox(width: RubyTheme.spacingS(context)),
+
+                // Input field
+                Expanded(
+                  child: Container(
                     decoration: BoxDecoration(
-                      color: accentColor,
-                      shape: BoxShape.circle,
+                      color: RubyTheme.surface(context),
+                      borderRadius: BorderRadius.circular(
+                        RubyTheme.radiusLarge(context),
+                      ),
+                      border: Border.all(
+                        color: accentColor.withOpacity(0.3),
+                        width: 1.5,
+                      ),
                       boxShadow: RubyTheme.softShadow(context),
                     ),
-                    child: Transform(
-                      alignment: Alignment.center,
-                      transform: Matrix4.identity()..scale(-1.0, 1.0),
-                      child: Icon(
-                        Icons.send_rounded,
-                        color: RubyTheme.pureWhite,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ),
-
-              if (_isTyping) SizedBox(width: RubyTheme.spacingS(context)),
-
-              // Input field (show "Recording..." when recording)
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: RubyTheme.surface(context),
-                    borderRadius: BorderRadius.circular(
-                      RubyTheme.radiusLarge(context),
-                    ),
-                    border: Border.all(
-                      color: accentColor.withOpacity(0.3),
-                      width: 1.5,
-                    ),
-                    boxShadow: RubyTheme.softShadow(context),
-                  ),
-                  child: TextField(
-                    controller: _controller,
-                    focusNode: _focusNode,
-                    textDirection: TextDirection.rtl,
-                    maxLines: null,
-                    textInputAction: TextInputAction.newline,
-                    // enabled: !_isRecording, // Disable input while recording
-                    decoration: InputDecoration(
-                      // hintText: _isRecording
-                      //     ? 'جاري التسجيل...'
-                      //     : (widget.hasActiveFilters
-                      //           ? 'اكتب التاسك (فلتر نشط) ...'
-                      //           : 'اكتب التاسك ...'),
-                      hintText: widget.hasActiveFilters
-                          ? 'اكتب التاسك (فلتر نشط) ...'
-                          : 'اكتب التاسك ...',
-                      hintStyle: RubyTheme.bodyMedium(context).copyWith(
-                        color: RubyTheme.textSecondary(
-                          context,
-                        ).withOpacity(0.6),
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: RubyTheme.spacingM(context),
-                        vertical: RubyTheme.spacingM(context) / 2,
-                      ),
-                      suffixIcon: _isTyping
-                          ? null
-                          : (widget.hasActiveFilters
+                    child: TextField(
+                      controller: _controller,
+                      focusNode: _focusNode,
+                      textDirection: TextDirection.rtl,
+                      maxLines: null,
+                      textInputAction: TextInputAction.newline,
+                      decoration: InputDecoration(
+                        hintText: widget.hasActiveFilters
+                            ? 'اكتب التاسك (فلتر نشط) ...'
+                            : 'اكتب التاسك ...',
+                        hintStyle: RubyTheme.bodyMedium(context).copyWith(
+                          color: RubyTheme.textSecondary(
+                            context,
+                          ).withOpacity(0.6),
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: RubyTheme.spacingM(context),
+                          vertical: RubyTheme.spacingM(context) / 2,
+                        ),
+                        suffixIcon: _isTyping
+                            ? null
+                            : (widget.hasActiveFilters
                                 ? Container(
                                     margin: EdgeInsets.all(8),
                                     padding: EdgeInsets.all(6),
@@ -204,21 +170,92 @@ class _ChatInputState extends State<ChatInput> {
                                       context,
                                     ).withOpacity(0.5),
                                   )),
+                      ),
+                      style: RubyTheme.bodyLarge(
+                        context,
+                      ).copyWith(color: RubyTheme.textPrimary(context)),
+                      onSubmitted: (value) {
+                        if (value.trim().isNotEmpty) {
+                          _sendTask();
+                        }
+                      },
                     ),
-                    style: RubyTheme.bodyLarge(
-                      context,
-                    ).copyWith(color: RubyTheme.textPrimary(context)),
-                    onSubmitted: (value) {
-                      if (value.trim().isNotEmpty) {
-                        _sendTask();
-                      }
-                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTagSelector() {
+    if (widget.availableTags.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      height: 34,
+      margin: const EdgeInsets.only(bottom: 8, right: 4, left: 4),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: widget.availableTags.length,
+        itemBuilder: (context, index) {
+          final tag = widget.availableTags[index];
+          final isSelected = _selectedTags.contains(tag);
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (isSelected) {
+                    _selectedTags.remove(tag);
+                  } else {
+                    _selectedTags.add(tag);
+                  }
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? RubyTheme.sapphire
+                      : RubyTheme.surface(context),
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: isSelected
+                        ? RubyTheme.sapphire
+                        : RubyTheme.textSecondary(context).withOpacity(0.2),
+                    width: 1,
+                  ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: RubyTheme.sapphire.withOpacity(0.3),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          )
+                        ]
+                      : null,
+                ),
+                child: Center(
+                  child: Text(
+                    tag,
+                    style: RubyTheme.bodyMedium(context).copyWith(
+                      color: isSelected
+                          ? RubyTheme.pureWhite
+                          : RubyTheme.textPrimary(context),
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

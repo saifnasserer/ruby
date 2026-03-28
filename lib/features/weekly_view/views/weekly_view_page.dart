@@ -169,11 +169,12 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
                       if (widget.settingsController != null)
                         SlideableTaskInput(
                           dayOfWeek: 'النهاردة',
-                          onTaskAdded: (text) => addTaskToCurrentDay(text, selectedTag: _currentFilter.selectedTag),
+                          onTaskAdded: (text, tags) => addTaskToCurrentDay(text, tags, selectedTag: _currentFilter.selectedTag),
                           onTaskRestored: (taskId, dateKey) =>
                               restoreTask(taskId),
-                          onVoiceTaskAdded: (path, wave, [trans]) => addVoiceTaskToCurrentDay(path, wave, trans, _currentFilter.selectedTag),
+                          onVoiceTaskAdded: (path, wave, tags) => addVoiceTaskToCurrentDay(path, wave, tags, _currentFilter.selectedTag),
                           settingsController: widget.settingsController!,
+                          availableTags: taskController.availableTags,
                           onSearchTap: () {
                             Navigator.push(
                               context,
@@ -211,11 +212,12 @@ class _WeeklyViewPageState extends State<WeeklyViewPage>
                       else
                         ChatInput(
                           dayOfWeek: 'النهاردة',
-                          onTaskAdded: addTaskToCurrentDay,
+                          onTaskAdded: (text, tags) => addTaskToCurrentDay(text, tags),
                           onTaskRestored: (taskId, dateKey) =>
                               restoreTask(taskId),
-                          onVoiceTaskAdded: addVoiceTaskToCurrentDay,
+                          onVoiceTaskAdded: (path, wave, tags) => addVoiceTaskToCurrentDay(path, wave, tags),
                           hasActiveFilters: _currentFilter.hasActiveFilters,
+                          availableTags: taskController.availableTags,
                         ),
                     ],
                   ),

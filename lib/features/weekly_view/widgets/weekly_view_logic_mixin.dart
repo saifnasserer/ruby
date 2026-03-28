@@ -57,9 +57,13 @@ mixin WeeklyViewLogicMixin<T extends StatefulWidget> on State<T> {
     }
   }
 
-  void addTaskToCurrentDay(String taskText, {String? selectedTag}) {
+  void addTaskToCurrentDay(String taskText, List<String> tags, {String? selectedTag}) {
     final currentDateKey = weeklyViewController.getCurrentDateKey();
-    taskController.addTask(currentDateKey, taskText, tags: selectedTag != null ? [selectedTag] : null);
+    // Merge provided tags with selected filter tag
+    final allTags = <String>{...tags};
+    if (selectedTag != null) allTags.add(selectedTag);
+    
+    taskController.addTask(currentDateKey, taskText, tags: allTags.toList());
     loadChatHistoryForDay(currentDateKey);
   }
 
@@ -117,8 +121,8 @@ mixin WeeklyViewLogicMixin<T extends StatefulWidget> on State<T> {
 
   void addVoiceTaskToCurrentDay(
     String audioPath,
-    List<double>? waveformData, [
-    String? transcription,
+    List<double>? waveformData,
+    List<String> tags, [
     String? selectedTag,
   ]) {
     if (audioPath.isEmpty) return;
@@ -127,14 +131,18 @@ mixin WeeklyViewLogicMixin<T extends StatefulWidget> on State<T> {
     final today = DateTime(now.year, now.month, now.day);
     final dateKey = weeklyViewController.getDateKey(today);
 
+    // Merge provided tags with selected filter tag
+    final allTags = <String>{...tags};
+    if (selectedTag != null) allTags.add(selectedTag);
+
     final task = Task(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      text: transcription ?? 'تسجيل صوتي',
+      text: 'تسجيل صوتي',
       createdAt: DateTime.now(),
-      dayOfWeek: dateKey, // FIX: Use dateKey instead of display text
+      dayOfWeek: dateKey,
       audioPath: audioPath,
       waveformData: waveformData,
-      tags: selectedTag != null ? [selectedTag] : [],
+      tags: allTags.toList(),
     );
 
     taskController.addTaskObject(dateKey, task);

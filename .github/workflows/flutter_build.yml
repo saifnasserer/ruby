@@ -40,9 +40,6 @@ jobs:
           sed -i "s/version: \(.*\)+.*/version: \1+$BUILD_NUMBER/" pubspec.yaml
           echo "New Version: $(grep 'version:' pubspec.yaml)"
 
-      - name: Analyze code (Non-fatal)
-        run: flutter analyze || echo "Analysis found issues but continuing with build"
-
       - name: Build APK (Release)
         run: flutter build apk --release
 
